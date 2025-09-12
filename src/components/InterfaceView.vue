@@ -9,12 +9,7 @@
    let player = new Player();
    onMounted(async () => {
       await player.get_word_list();
-      wordList.value = player.concentrate(
-         boardLetters.value,
-         needLetters.value,
-         notLetters.value,
-         anyLetters.value
-      );
+      getWords();
    });
    function getWords() {
       wordList.value = player.concentrate(
