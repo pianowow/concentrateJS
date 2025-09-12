@@ -1,17 +1,19 @@
 <script setup>
    import { ref, onMounted, computed } from 'vue';
+   import BoardGrid from './BoardGrid.vue';
    import { Player } from '../players/player';
    const wordList = ref([]);
-   let boardLetters = ref('AAEEIIOOUUYYYBBBBBBBBBBBB');
-   let needLetters = ref('O');
-   let notLetters = ref('EAEA');
-   let anyLetters = ref('U');
+   const boardLetters = ref('AAEEIIOOUUYYYBBBBBBBBBBBB');
+   const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
+   const needLetters = ref('O');
+   const notLetters = ref('EAEA');
+   const anyLetters = ref('U');
    let player = new Player();
    onMounted(async () => {
       await player.get_word_list();
-      getWords();
+      syncState();
    });
-   function getWords() {
+   function syncState() {
       wordList.value = player.concentrate(
          boardLetters.value,
          needLetters.value,
@@ -25,6 +27,7 @@
 </script>
 
 <template>
+   <BoardGrid :board="boardLettersUpperCase" />
    <p>
       <label for="board-input">Board</label>
       <input
@@ -32,7 +35,7 @@
          class="input"
          type="text"
          v-model="boardLetters"
-         @input="getWords"
+         @input="syncState($event)"
          maxlength="25"
       />
    </p>
@@ -43,7 +46,7 @@
          class="input"
          type="text"
          v-model="needLetters"
-         @input="getWords"
+         @input="syncState"
          maxlength="25"
       />
    </p>
@@ -54,7 +57,7 @@
          class="input"
          type="text"
          v-model="notLetters"
-         @input="getWords"
+         @input="syncState"
          maxlength="25"
       />
    </p>
@@ -65,7 +68,7 @@
          class="input"
          type="text"
          v-model="anyLetters"
-         @input="getWords"
+         @input="syncState"
          maxlength="25"
       />
    </p>
@@ -78,5 +81,6 @@
    .input {
       width: 230px;
       margin-left: 5px;
+      text-transform: uppercase;
    }
 </style>
