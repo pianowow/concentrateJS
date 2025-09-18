@@ -1,5 +1,4 @@
 <script setup>
-   import { defineProps } from 'vue';
    import BoardGridRowTile from './BoardGridRowTile.vue';
    const props = defineProps(['row']);
 </script>
