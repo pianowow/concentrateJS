@@ -1,17 +1,30 @@
 <script setup>
    import { ref, onMounted, computed } from 'vue';
    import BoardGrid from './BoardGrid.vue';
-   import { Player } from '../players/player';
+   import { Player } from '../js/player';
    const wordList = ref([]);
-   const boardLetters = ref('AAEEIIOOUUYYYBBBBBBBBBBBB');
+   const boardLetters = ref('QQQQQQQQQQASDFGASDFASEING');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
-   const needLetters = ref('O');
-   const notLetters = ref('EAEA');
-   const anyLetters = ref('U');
-   let player = new Player();
+   const needLetters = ref('');
+   const notLetters = ref('');
+   const anyLetters = ref('');
+   let player;
    onMounted(async () => {
-      await player.get_word_list();
+      player = await Player.new();
       syncState();
+      let s = player.convertBoardScore('B5B5W5R5R5');
+      let ss = player.decide(boardLetters.value, 'B5B5W5R5R5', '', '', 1);
+      console.log(ss);
+      let m = Math.max(...ss.map((val) => val[0]));
+      console.log(m);
+      for (let x of ss) {
+         if (m == x[0]) {
+            console.log(x);
+         }
+         if ('FANEGADAS' == x[1]) {
+            console.log(x);
+         }
+      }
    });
    function syncState() {
       wordList.value = player.concentrate(
