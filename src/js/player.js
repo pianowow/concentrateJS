@@ -569,7 +569,6 @@ export class Player {
       // determines whether playing a member of a group is safe,
       // that is, it would not allow the opponent to play the last word of this group
       assert(group.indexOf(play) >= 0, 'playIsSafe: play not found in group');
-      console.log(JSON.stringify(group) + ' ' + play);
       let newgroup = [];
       for (let word of group) {
          let length = word.length;
@@ -577,7 +576,6 @@ export class Player {
             newgroup.push(word);
          }
       }
-      console.log('newgroup: ' + JSON.stringify(newgroup));
       group = newgroup;
       const category = { single: 0, double: 0, big: 0 };
       newgroup.sort((a, b) => a.length - b.length);
@@ -624,7 +622,6 @@ export class Player {
             category.single += 1;
          }
       }
-      console.log(category);
       if (category.big > 0) return false;
       return category.single % 2 === 0 && category.double % 2 === 0;
    }
@@ -707,7 +704,6 @@ export class Player {
             }
          }
          let group = [...bestWords.values().map((val) => val[1])];
-         console.log(group);
          for (let [i, [playscore, word, groupsize, playblue, playred]] of bestWords) {
             if (this.playIsSafe(group, word)) {
                wordScores[i] = [roundTo(playscore + inc, 4), word, groupsize, playblue, playred];

@@ -5,26 +5,15 @@
    const wordList = ref([]);
    const boardLetters = ref('QQQQQQQQQQASDFGASDFASEING');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
+   const colorLetters = ref('W5W5W5W5W5');
    const needLetters = ref('');
    const notLetters = ref('');
    const anyLetters = ref('');
+   const decideScores = ref([]);
    let player;
    onMounted(async () => {
       player = await Player.new();
       syncState();
-      let s = player.convertBoardScore('B5B5W5R5R5');
-      let ss = player.decide(boardLetters.value, 'B5B5W5R5R5', '', '', 1);
-      console.log(ss);
-      let m = Math.max(...ss.map((val) => val[0]));
-      console.log(m);
-      for (let x of ss) {
-         if (m == x[0]) {
-            console.log(x);
-         }
-         if ('FANEGADAS' == x[1]) {
-            console.log(x);
-         }
-      }
    });
    function syncState() {
       wordList.value = player.concentrate(
@@ -33,9 +22,13 @@
          notLetters.value,
          anyLetters.value
       );
+      decideScores.value = player.decide(boardLetters.value, colorLetters.value, '', '', 1);
    }
    const longest100Words = computed(() =>
       [...wordList.value].sort((a, b) => b.length - a.length).slice(0, 100)
+   );
+   const decide100Words = computed(() =>
+      [...decideScores.value].sort((a, b) => b[0] - a[0]).slice(0, 100)
    );
 </script>
 
@@ -48,6 +41,17 @@
          class="input"
          type="text"
          v-model="boardLetters"
+         @input="syncState($event)"
+         maxlength="25"
+      />
+   </p>
+   <p>
+      <label for="color-input">Color</label>
+      <input
+         id="color-input"
+         class="input"
+         type="text"
+         v-model="colorLetters"
          @input="syncState($event)"
          maxlength="25"
       />
@@ -88,6 +92,7 @@
    <p>Loaded {{ wordList.length }} words</p>
    <p>The first 100 words are {{ wordList.slice(0, 100).join(', ') }}</p>
    <p>The longest 100 words are {{ longest100Words.join(', ') }}</p>
+   <p>The best 100 plays are {{ decide100Words.join(', ') }}</p>
 </template>
 
 <style>
