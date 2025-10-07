@@ -89,7 +89,7 @@ export class Player {
       try {
          let response;
          if (this.difficulty.listsize == 'A') {
-            response = await fetch('/word_lists/en.txt');
+            response = await fetch(new URL('word_lists/en.txt', document.baseURI));
          } // TODO: other listsizes
          if (!response.ok) {
             throw new Error('Network response was not ok');
