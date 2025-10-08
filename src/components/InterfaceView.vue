@@ -16,13 +16,18 @@
       syncState();
    });
    function syncState() {
-      wordList.value = player.concentrate(
-         boardLetters.value,
-         needLetters.value,
-         notLetters.value,
-         anyLetters.value
-      );
-      decideScores.value = player.decide(boardLetters.value, colorLetters.value, '', '', 1);
+      if (boardLetters.value.length == 25) {
+         wordList.value = player.concentrate(
+            boardLetters.value,
+            needLetters.value,
+            notLetters.value,
+            anyLetters.value
+         );
+         decideScores.value = player.decide(boardLetters.value, colorLetters.value, '', '', 1);
+      } else {
+         decideScores.value = [];
+         wordList.value = [];
+      }
    }
    const longest100Words = computed(() =>
       [...wordList.value].sort((a, b) => b.length - a.length).slice(0, 100)

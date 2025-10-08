@@ -64,6 +64,7 @@ export class Player {
       return p;
    }
 
+   // TODO: move to board
    saveNeighbor(square, nsquare) {
       // helper for buildNeighbors
       if (nsquare >= 0 && nsquare < 25) {
@@ -75,6 +76,7 @@ export class Player {
       }
    }
 
+   // TODO: move to board
    buildNeighbors() {
       for (let square = 0; square < 25; square++) {
          this.saveNeighbor(square, square);
@@ -261,6 +263,7 @@ export class Player {
       return anyLetterWordList;
    }
 
+   // TODO: move to board.js
    convertBoardScore(scoreString) {
       // produces bitmaps from string of 25 characters representing the colors
       let i = 0;
@@ -301,6 +304,7 @@ export class Player {
       return s;
    }
 
+   // TODO: move to util.js
    *combinations(arr, k) {
       const n = arr.length;
       if (k < 0 || k > n) return;
@@ -326,6 +330,7 @@ export class Player {
       yield* rec(0, 0);
    }
 
+   // TODO: move to board.js
    centroid(map) {
       let cnt = 0;
       let ysum = 0;
@@ -346,6 +351,7 @@ export class Player {
       }
    }
 
+   // TODO: move to util.js
    vectorDiff = (v1, v2) => Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2);
 
    goalValue(goal, blue, red, move) {
@@ -488,7 +494,7 @@ export class Player {
    }
 
    arrange(allLetters, word, s, scores = new Map(), avoidIndexes = [], move = 1) {
-      // function to determine the best placement of a word
+      // function to evaluate all placements of a word
       // for each unique letter, get a list of lists for the indexes it can be played in
       let wordhist = Object();
       for (const letter of word) {
@@ -627,7 +633,8 @@ export class Player {
    }
 
    decide(allLetters, score, needLetters, notLetters, move) {
-      // judges the merits of possible words for this board
+      // judges the merits of possible plays for this board
+      allLetters = allLetters.toUpperCase();
       let s = this.convertBoardScore(score);
       let targets = 0;
       if (move == 1) {
