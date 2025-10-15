@@ -1,17 +1,19 @@
 <script setup>
-   const props = defineProps(['letter']);
+   const props = defineProps(['letter', 'color']);
 </script>
 
 <template>
-   <div class="letter">{{ props.letter }}</div>
+   <div :class="['letter', props.color]">{{ props.letter }}</div>
 </template>
 
 <style>
    .letter {
-      width: 20px;
-      height: 20px;
+      width: 25px;
+      height: 25px;
       display: flex;
       justify-content: center;
       align-items: center;
+      background-color: #eeeeee;
+      margin: 1px;
    }
 </style>

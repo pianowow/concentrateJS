@@ -1,16 +1,48 @@
 <script setup>
    import { computed } from 'vue';
    import BoardGridRow from './BoardGridRow.vue';
-   const props = defineProps(['board']);
-   const rows = computed(() => {
+   const props = defineProps(['letters', 'colors', 'theme']);
+   const letters = computed(() => {
       const arr = [];
       for (let i = 0; i < 25; i += 5) {
-         arr.push(props.board.slice(i, i + 5));
+         arr.push(props.letters.slice(i, i + 5));
+      }
+      return arr;
+   });
+   const colors = computed(() => {
+      const arr = [];
+      for (let i = 0; i < 25; i += 5) {
+         arr.push(props.colors.slice(i, i + 5));
       }
       return arr;
    });
 </script>
 
 <template>
-   <BoardGridRow v-for="(row, index) in rows" :key="index" :row="row" />
+   <div class="board-wrapper">
+      <BoardGridRow
+         v-for="(rowLetters, index) in letters"
+         :key="index"
+         :letters="rowLetters"
+         :colors="colors[index]"
+      />
+   </div>
 </template>
+
+<style>
+   .b {
+      background-color: v-bind('props.theme.blue');
+   }
+   .B {
+      background-color: v-bind('props.theme.defendedBlue');
+   }
+   .r {
+      background-color: v-bind('props.theme.red');
+   }
+   .R {
+      background-color: v-bind('props.theme.defendedRed');
+   }
+   .w {
+      background-color: v-bind('props.theme.defaultColor');
+   }
+</style>

@@ -1,11 +1,16 @@
 <script setup>
    import BoardGridRowTile from './BoardGridRowTile.vue';
-   const props = defineProps(['row']);
+   const props = defineProps(['letters', 'colors']);
 </script>
 
 <template>
    <div class="row">
-      <BoardGridRowTile v-for="(letter, index) in props.row" :key="index" :letter="letter" />
+      <BoardGridRowTile
+         v-for="(letter, index) in props.letters"
+         :key="index"
+         :letter="letter"
+         :color="props.colors.charAt(index)"
+      />
    </div>
 </template>
 
