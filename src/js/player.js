@@ -44,6 +44,21 @@ class Vector {
    }
 }
 
+class Play {
+   score = 0;
+   word = '';
+   group_size = 0;
+   blue_map = 0;
+   red_map = 0;
+   constructor(score = 0, word = '', group_size = 0, blue_map = 0, red_map = 0) {
+      this.score = score;
+      this.word = word;
+      this.group_size = group_size;
+      this.blue_map = blue_map;
+      this.red_map = red_map;
+   }
+}
+
 export class Player {
    constructor(difficulty, weights) {
       this.difficulty = difficulty;
@@ -265,7 +280,7 @@ export class Player {
 
    // TODO: move to board.js
    convertBoardScore(scoreString) {
-      // produces bitmaps from string of 25 characters representing the colors
+      // produces bitmaps from a string of characters representing the colors
       let i = 0;
       let prevchar = 'W';
       let s = new Score();
@@ -677,7 +692,7 @@ export class Player {
       }
       wordList = this.concentrate(allLetters, needLetters, notLetters, anyl);
       const wordGroups = this.groupWords(wordList, anyl);
-      let wordScores = [];
+      let plays = [];
       for (const group in wordGroups) {
          // scores formed by different arrangements of the same group
          // entries of the form [blue,red]:score
@@ -687,36 +702,53 @@ export class Player {
          for (let [position, score] of scores) {
             const playscore = roundTo(score, 3);
             for (const word of wordGroups[group]) {
-               wordScores.push([playscore, word, groupsize, position[0], position[1]]);
+               plays.push(new Play(playscore, word, groupsize, position[0], position[1]));
             }
          }
       }
       let bestScore = 0;
       let inc;
-      if (move == 1 && wordScores.length > 0) {
-         bestScore = Math.max(...wordScores.map((score) => score[0]));
+      if (move == 1 && plays.length > 0) {
+         bestScore = Math.max(...plays.map((play) => play.score));
          inc = 0.0005;
-      } else if (move == -1 && wordScores.length > 0) {
-         bestScore = Math.min(...wordScores.map((score) => score[0]));
+      } else if (move == -1 && plays.length > 0) {
+         bestScore = Math.min(...plays.map((play) => play.score));
          inc = -0.0005;
       } else {
-         return wordScores;
+         return plays;
       }
       // we'd like to play the last word of the best group, so check which plays are safe of the best group
-      let bestWords = new Map();
+      let bestPlays = new Map();
       if (Math.abs(bestScore) < 1000) {
-         for (let [i, [playscore, word, groupsize, playblue, playred]] of wordScores.entries()) {
-            if (playscore == bestScore) {
-               bestWords.set(i, [playscore, word, groupsize, playblue, playred]);
+         for (let [i, play] of plays.entries()) {
+            if (play.score == bestScore) {
+               bestPlays.set(i, play);
             }
          }
-         let group = [...bestWords.values().map((val) => val[1])];
-         for (let [i, [playscore, word, groupsize, playblue, playred]] of bestWords) {
-            if (this.playIsSafe(group, word)) {
-               wordScores[i] = [roundTo(playscore + inc, 4), word, groupsize, playblue, playred];
+         let bestGroup = [...bestPlays.values().map((play) => play.word)];
+         for (let [i, play] of bestPlays) {
+            if (this.playIsSafe(bestGroup, play.word)) {
+               plays[i] = new Play(
+                  roundTo(play.score + inc, 4),
+                  play.word,
+                  play.group_size,
+                  play.blue_map,
+                  play.red_map
+               );
             }
          }
       }
-      return wordScores;
+      return plays;
+   }
+
+   search(allLetters, score, needLetters, notLetters, move) {
+      let plays = this.decide(allLetters, score, needLetters, notLetters, move);
+      // TODO (?) implement random difficulty
+      if (move > 0) {
+         plays.sort((a, b) => b.score - a.score);
+      } else {
+         plays.sort((a, b) => a.score - b.score);
+      }
+      return plays;
    }
 }

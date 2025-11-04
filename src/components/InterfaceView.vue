@@ -5,6 +5,15 @@
    import { LightColorTheme } from '../js/board';
    const theme = new LightColorTheme();
    const wordList = ref([]);
+   const searchResults = ref([]);
+   const searchResultsSize = ref(20);
+   const searchLastDisplayed = ref(-1);
+   const searchResultsSlice = computed(() =>
+      searchResults.value.slice(
+         searchLastDisplayed.value + 1,
+         searchLastDisplayed.value + searchResultsSize.value + 1
+      )
+   );
    const boardLetters = ref('QQQQQQQQQQASDFGASDFASEING');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
    const colorLetters = ref('R5R5W5B5B5');
@@ -66,13 +75,11 @@
    const needLetters = ref('');
    const notLetters = ref('');
    const anyLetters = ref('');
-   const decideScores = ref([]);
    const selectedIndex = ref(null);
    let player;
    onMounted(async () => {
       player = await Player.new();
       syncState();
-      console.log(JSON.stringify(theme));
    });
    function syncState() {
       if (boardLetters.value.length == 25) {
@@ -82,18 +89,15 @@
             notLetters.value,
             anyLetters.value
          );
-         decideScores.value = player.decide(boardLetters.value, colorLetters.value, '', '', 1);
+         searchResults.value = player.search(boardLetters.value, colorLetters.value, '', '', 1);
       } else {
-         decideScores.value = [];
+         searchResults.value = [];
          wordList.value = [];
       }
    }
    function handleRowClick(index) {
       selectedIndex.value = selectedIndex.value === index ? null : index;
    }
-   const decide100Words = computed(() =>
-      [...decideScores.value].sort((a, b) => b[0] - a[0]).slice(0, 100)
-   );
 </script>
 
 <template>
@@ -158,7 +162,7 @@
    <table>
       <thead>
          <tr>
-            <th colspan="5">Best 100 Plays</th>
+            <th colspan="5">Best {{ searchResultsSize }} Plays</th>
          </tr>
          <tr>
             <th>Score</th>
@@ -170,16 +174,16 @@
       </thead>
       <tbody>
          <tr
-            v-for="(play, index) in decide100Words"
+            v-for="(play, index) in searchResultsSlice"
             :key="index"
             @click="handleRowClick(index)"
             :class="{ selected: selectedIndex === index }"
          >
-            <td>{{ play[0] }}</td>
-            <td>{{ play[1] }}</td>
-            <td>{{ play[2] }}</td>
-            <td>{{ play[3] }}</td>
-            <td>{{ play[4] }}</td>
+            <td>{{ play.score }}</td>
+            <td>{{ play.word }}</td>
+            <td>{{ play.group_size }}</td>
+            <td>{{ play.blue_map }}</td>
+            <td>{{ play.red_map }}</td>
          </tr>
       </tbody>
    </table>
