@@ -85,8 +85,9 @@
       return answer;
    });
    const needLetters = ref('');
+   const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
-   const anyLetters = ref('');
+   const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
    const selectedIndex = ref(null);
    let player;
    onMounted(async () => {
@@ -97,16 +98,15 @@
    });
    function syncState() {
       if (boardLetters.value.length == 25) {
-         wordList.value = player.concentrate(
-            boardLetters.value,
-            needLetters.value,
-            notLetters.value,
-            anyLetters.value
+         searchResults.value = player.search(
+            boardLettersUpperCase.value,
+            colorLetters.value,
+            needLettersUpperCase.value,
+            notLettersUpperCase.value,
+            1
          );
-         searchResults.value = player.search(boardLetters.value, colorLetters.value, '', '', 1);
       } else {
          searchResults.value = [];
-         wordList.value = [];
       }
    }
    function handleRowClick(index) {
@@ -181,18 +181,7 @@
          maxlength="25"
       />
    </div>
-   <div class="input-div">
-      <label for="any-input">Any</label>
-      <input
-         id="any-input"
-         class="input"
-         type="text"
-         v-model="anyLetters"
-         @input="syncState"
-         maxlength="25"
-      />
-   </div>
-   <p>Loaded {{ wordList.length }} words</p>
+   <p />
    <table>
       <thead>
          <tr>
