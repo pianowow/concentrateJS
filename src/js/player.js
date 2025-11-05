@@ -33,6 +33,12 @@ class Score {
    red = 0;
    bluedef = 0;
    reddef = 0;
+   constructor(blue, red, bluedef, reddef) {
+      this.blue = blue;
+      this.red = red;
+      this.bluedef = bluedef;
+      this.reddef = reddef;
+   }
 }
 
 class Vector {
@@ -60,7 +66,11 @@ class Play {
 }
 
 export class Player {
-   constructor(difficulty, weights) {
+   constructor(
+      difficulty = new Difficulty('A', 5, 25, 'S'),
+      weights = new Weights(3.1, 1.28, 2.29, 7.78),
+      wordList = []
+   ) {
       this.difficulty = difficulty;
       this.weights = weights;
       this.name = 'stable - player0';
@@ -68,15 +78,10 @@ export class Player {
       this.buildNeighbors();
       this.cache = Object();
       this.hashtable = Object();
-   }
-
-   static async new(
-      difficulty = new Difficulty('A', 5, 25, 'S'),
-      weights = new Weights(3.1, 1.28, 2.29, 7.78)
-   ) {
-      const p = new Player(difficulty, weights);
-      await p.getWordList();
-      return p;
+      assert(Array.isArray(wordList), 'Player.new requires a wordList array');
+      this.wordList = wordList
+         .map((w) => (typeof w === 'string' ? w.toUpperCase().trim() : ''))
+         .filter(Boolean);
    }
 
    // TODO: move to board
@@ -100,28 +105,6 @@ export class Player {
          if (square % 5 != 0) this.saveNeighbor(square, square - 1);
          this.saveNeighbor(square, square + 5);
       }
-   }
-
-   async getWordList() {
-      try {
-         let response;
-         if (this.difficulty.listsize == 'A') {
-            response = await fetch(new URL('word_lists/en.txt', document.baseURI));
-         } // TODO: other listsizes
-         if (!response.ok) {
-            throw new Error('Network response was not ok');
-         }
-         const textData = await response.text();
-         this.wordList = textData
-            .toUpperCase()
-            .split(/\r?\n/)
-            .filter((word) => word.trim());
-         //.filter((word) => word.toUpperCase().trim());
-      } catch (error) {
-         console.error('Failed to load word list:', error);
-      } //finally {
-      //this.wordListIsLoading.value = false;
-      // }
    }
 
    // roundTo(num, decimalPlaces) {
@@ -219,10 +202,10 @@ export class Player {
    }
 
    concentrate(allLetters, needLetters = '', notLetters = '', anyLetters = '') {
-      allLetters = allLetters.toUpperCase();
-      needLetters = needLetters.toUpperCase();
-      notLetters = notLetters.toUpperCase();
-      anyLetters = anyLetters.toUpperCase();
+      assert(allLetters == allLetters.toUpperCase());
+      assert(needLetters == needLetters.toUpperCase());
+      assert(notLetters == notLetters.toUpperCase());
+      assert(anyLetters == anyLetters.toUpperCase());
       let possibleWords = this.possible(allLetters);
       let needLetterWordList = [];
       if (needLetters != '') {
@@ -455,6 +438,7 @@ export class Player {
                group = group + letter;
             }
          }
+         group = group.split('').sort().join(''); //we care if the group has the same letters, not the same order of letters
          if (wordGroups[group]) {
             wordGroups[group].push(word);
          } else {
@@ -750,5 +734,78 @@ export class Player {
          plays.sort((a, b) => a.score - b.score);
       }
       return plays;
+   }
+
+   defendedMap(posmap) {
+      const n = this.neighbors;
+      let defmap = 0;
+      for (let i = 0; i < 25; i++) {
+         if ((posmap & n.get(i)) == n.get(i)) {
+            defmap = defmap | (1 << i);
+         }
+      }
+      return defmap;
+   }
+
+   endgameCheck(allLetters, blue, red, move) {
+      //called by interface to check a page of search results at a time
+      //purpose: an extra depth of search to check if a play loses or forces the end soon
+      let zeroletters = '';
+      let zeros = ~blue & ~red;
+      let anyl = '';
+      const bluedef = this.defendedMap(blue);
+      const reddef = this.defendedMap(red);
+      let targets = 0;
+      if (move == 1) {
+         targets = (blue & ~bluedef) | zeros;
+      } else {
+         targets = (red & ~reddef) | zeros;
+      }
+      for (let i = 0; i < 25; i++) {
+         if (targets & (1 << i)) {
+            anyl += allLetters.charAt(i);
+         }
+         if (zeros & (1 << i)) {
+            zeroletters += allLetters.charAt(i);
+         }
+      }
+      let gameendingwords = [];
+      let losing = false;
+      let endingsoon = false;
+      let newscore = null;
+      if (zeroletters) {
+         // TODO ? original Python memoized this value in this.cache[allLetters+zeroletters]
+         gameendingwords = this.concentrate(allLetters, zeroletters);
+         const wordgroups = this.groupWords(gameendingwords, anyl);
+         for (let gameendingword in wordgroups) {
+            let scores = new Map();
+            let used = [];
+            this.arrange(
+               allLetters,
+               gameendingword,
+               new Score(blue, red, bluedef, reddef),
+               scores,
+               used,
+               -move
+            );
+            if (move == 1) {
+               newscore = scores.values().reduce((prev, curr) => (prev < curr ? prev : curr));
+               if (newscore <= -1000) {
+                  losing = true;
+                  break;
+               }
+            } else {
+               newscore = scores.reduce((prev, curr) => (prev > curr ? prev : curr));
+               if (newscore >= 1000) {
+                  losing = true;
+                  break;
+               }
+            }
+         }
+      }
+      if (gameendingwords.length > 0) {
+         endingsoon = true;
+      }
+      return [endingsoon, losing];
    }
 }
