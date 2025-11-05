@@ -33,7 +33,7 @@ export default defineConfig([
       },
       rules: {
          // prefer <script setup> over normal <script>
-         'vue/component-api-style': ['error', 'script setup'],
+         'vue/component-api-style': ['error', ['script-setup']],
       },
    },
 ]);
