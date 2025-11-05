@@ -23,11 +23,17 @@ export default defineConfig([
 
    js.configs.recommended,
    ...pluginVue.configs['flat/essential'],
+
+   //typescript rules
    ...tseslint.configs.recommended,
    {
       files: ['**/*.vue'],
       languageOptions: {
          parserOptions: { parser: tsParser },
+      },
+      rules: {
+         // prefer <script setup> over normal <script>
+         'vue/component-api-style': ['error', 'script setup'],
       },
    },
 ]);
