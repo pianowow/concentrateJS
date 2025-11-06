@@ -1,0 +1,22 @@
+{
+   "extends": "@vue/tsconfig/tsconfig.dom.json",
+   "compilerOptions": {
+      "strict": true,
+      "noImplicitAny": true,
+      "skipLibCheck": true,
+      "types": ["vite/client"],
+      "baseUrl": ".",
+      "paths": { "@/*": ["src/*"] },
+      "allowJs": true,
+      "checkJs": false // set to true for global JS type-checking; or keep false and use // @ts-check per file
+   },
+   "include": [
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "src/**/*.vue",
+      "src/**/*.d.ts",
+      "src/**/*.js",
+      "src/**/*.jsx"
+   ],
+   "exclude": ["node_modules", "dist"]
+}

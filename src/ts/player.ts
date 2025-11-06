@@ -1,11 +1,11 @@
 import { roundTo, assert } from './util';
 
 class Difficulty {
-   listsize;
-   unsure; // player.py calls this span limit, default value 5, but it's not not used after being defined
-   wordsizelimit;
-   unsure2; // player.py turn uses this to decide whether to play the best word or a randomly selected word
-   constructor(listsize, unsure, wordsizelimit, unsure2) {
+   listsize: string;
+   unsure: number; // player.py calls this span limit, default value 5, but it's not not used after being defined
+   wordsizelimit: number;
+   unsure2: string; // player.py turn uses this to decide whether to play the best word or a randomly selected word
+   constructor(listsize: string, unsure: number, wordsizelimit: number, unsure2: string) {
       this.listsize = listsize;
       this.unsure = unsure;
       this.wordsizelimit = wordsizelimit;
@@ -14,12 +14,12 @@ class Difficulty {
 }
 
 class Weights {
-   dw; //defended weight
-   uw; //undefended weight
-   dpw; //defended popularity weight
-   upw; //undefended popularity weight
-   mw; //median weight
-   constructor(dw, dpw, upw, mw) {
+   dw: number; //defended weight
+   uw: number; //undefended weight
+   dpw: number; //defended popularity weight
+   upw: number; //undefended popularity weight
+   mw: number; //median weight
+   constructor(dw: number, dpw: number, upw: number, mw: number) {
       this.dw = dw;
       this.uw = 1;
       this.dpw = dpw;
@@ -29,11 +29,11 @@ class Weights {
 }
 
 class Score {
-   blue = 0;
-   red = 0;
-   bluedef = 0;
-   reddef = 0;
-   constructor(blue, red, bluedef, reddef) {
+   blue: number;
+   red: number;
+   bluedef: number;
+   reddef: number;
+   constructor(blue = 0, red = 0, bluedef = 0, reddef = 0) {
       this.blue = blue;
       this.red = red;
       this.bluedef = bluedef;
@@ -42,20 +42,22 @@ class Score {
 }
 
 class Vector {
-   x = 2;
-   y = 2;
+   x: number = 2;
+   y: number = 2;
    constructor(x = 2, y = 2) {
       this.x = x;
       this.y = y;
    }
 }
 
-class Play {
-   score = 0;
-   word = '';
-   group_size = 0;
-   blue_map = 0;
-   red_map = 0;
+export class Play {
+   score: number = 0;
+   word: string = '';
+   group_size: number = 0;
+   blue_map: number = 0;
+   red_map: number = 0;
+   ending_soon?: boolean;
+   losing?: boolean;
    constructor(score = 0, word = '', group_size = 0, blue_map = 0, red_map = 0) {
       this.score = score;
       this.word = word;
@@ -66,10 +68,17 @@ class Play {
 }
 
 export class Player {
+   difficulty: Difficulty;
+   weights: Weights;
+   name: string;
+   neighbors: Map<number, number>;
+   cache;
+   hashtable;
+   wordList: string[];
    constructor(
       difficulty = new Difficulty('A', 5, 25, 'S'),
       weights = new Weights(3.1, 1.28, 2.29, 7.78),
-      wordList = []
+      wordList: string[] = []
    ) {
       this.difficulty = difficulty;
       this.weights = weights;
@@ -80,16 +89,16 @@ export class Player {
       this.hashtable = Object();
       assert(Array.isArray(wordList), 'Player.new requires a wordList array');
       this.wordList = wordList
-         .map((w) => (typeof w === 'string' ? w.toUpperCase().trim() : ''))
+         .map((w: string) => (typeof w === 'string' ? w.toUpperCase().trim() : ''))
          .filter(Boolean);
    }
 
    // TODO: move to board
-   saveNeighbor(square, nsquare) {
+   saveNeighbor(square: number, nsquare: number) {
       // helper for buildNeighbors
       if (nsquare >= 0 && nsquare < 25) {
          if (this.neighbors.has(square)) {
-            this.neighbors.set(square, this.neighbors.get(square) | (1 << nsquare));
+            this.neighbors.set(square, this.neighbors.get(square)! | (1 << nsquare));
          } else {
             this.neighbors.set(square, 1 << nsquare);
          }
@@ -112,14 +121,16 @@ export class Player {
    //    return Math.round(num * factor) / factor;
    // }
 
-   possible(letters) {
+   possible(letters: string) {
       letters = letters.toUpperCase();
       // TODO - refactor to avoid magic number 0 and 1 here
       if (this.cache[letters]) {
-         return this.cache[letters][0].filter((item) => !this.cache[letters][1].includes(item));
+         return this.cache[letters][0].filter(
+            (item: string) => !this.cache[letters][1].includes(item)
+         );
          //so we don't suggest words that have already been played
       }
-      let found = [];
+      const found = [];
       const wordsizelimit = this.difficulty.wordsizelimit;
       let good = true;
       for (const candidate of this.wordList.filter((word) => word.length < wordsizelimit)) {
@@ -164,30 +175,33 @@ export class Player {
          }
       }
       // calculate defended scores
-      let d = Array(25).fill(0);
-      for (const i in letters) {
-         d[i] = roundTo(this.weights.dw + this.weights.dpw * (1 - letterdict[letters[i]]), 2);
+      const d = Array(25).fill(0);
+      for (let i = 0; i < 25; i++) {
+         d[i] = roundTo(
+            this.weights.dw + this.weights.dpw * (1 - letterdict[letters.charAt(i)]),
+            2
+         );
       }
       // calculate undefended scores
-      let u = Array(25).fill(0);
+      const u = Array(25).fill(0);
       for (let row = 0; row < 5; row++) {
          for (let col = 0; col < 5; col++) {
-            let neighborList = [];
+            const neighborList = [];
             if (row - 1 >= 0) {
-               neighborList.push(letterdict[letters[(row - 1) * 5 + col]]);
+               neighborList.push(letterdict[letters.charAt((row - 1) * 5 + col)]);
             }
             if (col + 1 < 5) {
-               neighborList.push(letterdict[letters[row * 5 + col + 1]]);
+               neighborList.push(letterdict[letters.charAt(row * 5 + col + 1)]);
             }
             if (row + 1 < 5) {
-               neighborList.push(letterdict[letters[(row + 1) * 5 + col]]);
+               neighborList.push(letterdict[letters.charAt((row + 1) * 5 + col)]);
             }
             if (col - 1 >= 0) {
-               neighborList.push(letterdict[letters[row * 5 + col - 1]]);
+               neighborList.push(letterdict[letters.charAt(row * 5 + col - 1)]);
             }
-            let size = neighborList.length;
+            const size = neighborList.length;
             for (let x = 0; x < size; x++) {
-               neighborList.push(1 - letterdict[letters[row * 5 + col]]);
+               neighborList.push(1 - letterdict[letters.charAt(row * 5 + col)]);
             }
             u[row * 5 + col] = roundTo(
                this.weights.uw +
@@ -201,12 +215,12 @@ export class Player {
       return found;
    }
 
-   concentrate(allLetters, needLetters = '', notLetters = '', anyLetters = '') {
+   concentrate(allLetters: string, needLetters = '', notLetters = '', anyLetters = '') {
       assert(allLetters == allLetters.toUpperCase());
       assert(needLetters == needLetters.toUpperCase());
       assert(notLetters == notLetters.toUpperCase());
       assert(anyLetters == anyLetters.toUpperCase());
-      let possibleWords = this.possible(allLetters);
+      const possibleWords = this.possible(allLetters);
       let needLetterWordList = [];
       if (needLetters != '') {
          //find words that use all needLetters
@@ -262,11 +276,11 @@ export class Player {
    }
 
    // TODO: move to board.js
-   convertBoardScore(scoreString) {
+   convertBoardScore(scoreString: string) {
       // produces bitmaps from a string of characters representing the colors
       let i = 0;
       let prevchar = 'W';
-      let s = new Score();
+      const s = new Score();
       for (const char of scoreString) {
          if (char == 'B') {
             s.blue = s.blue | (1 << i);
@@ -292,10 +306,10 @@ export class Player {
          }
       }
       for (i = 0; i < 25; i++) {
-         if ((s.blue & this.neighbors.get(i)) == this.neighbors.get(i)) {
+         if ((s.blue & this.neighbors.get(i)!) == this.neighbors.get(i)) {
             s.bluedef = s.bluedef | (1 << i);
          }
-         if ((s.red & this.neighbors.get(i)) == this.neighbors.get(i)) {
+         if ((s.red & this.neighbors.get(i)!) == this.neighbors.get(i)) {
             s.reddef = s.reddef | (1 << i);
          }
       }
@@ -303,19 +317,19 @@ export class Player {
    }
 
    // TODO: move to util.js
-   *combinations(arr, k) {
+   *combinations(arr: number[], k: number): IterableIterator<number[]> {
       const n = arr.length;
       if (k < 0 || k > n) return;
-      const combo = new Array(k);
+      const combo = new Array<number>(k);
 
-      function* rec(start, depth) {
+      function* rec(start: number, depth: number): IterableIterator<number[]> {
          if (depth === k) {
             yield combo.slice();
             return;
          }
          // Prune so there are enough items left to fill the combo
          for (let i = start; i <= n - (k - depth); i++) {
-            combo[depth] = arr[i];
+            combo[depth] = arr[i]!;
             yield* rec(i + 1, depth + 1);
          }
       }
@@ -329,14 +343,14 @@ export class Player {
    }
 
    // TODO: move to board.js
-   centroid(map) {
+   centroid(map: number) {
       let cnt = 0;
       let ysum = 0;
       let xsum = 0;
       for (let i = 0; i < 25; i++) {
          if (((1 << i) & map) > 0) {
-            let y = Math.floor(i / 5);
-            let x = i % 5;
+            const y = Math.floor(i / 5);
+            const x = i % 5;
             ysum += y;
             xsum += x;
             cnt += 1;
@@ -350,13 +364,13 @@ export class Player {
    }
 
    // TODO: move to util.js
-   vectorDiff = (v1, v2) => Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2);
+   vectorDiff = (v1: Vector, v2: Vector) => Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2);
 
-   goalValue(goal, blue, red, move) {
+   goalValue(goal: number, blue: number, red: number, move: number) {
       // letter popularity reduced the strength of the engine
       // centroid is more important
       let playerVector = new Vector();
-      let goalVector = this.centroid(goal);
+      const goalVector = this.centroid(goal);
       if (move == 1) {
          if (blue > 0) {
             playerVector = this.centroid(blue);
@@ -369,10 +383,10 @@ export class Player {
       return this.vectorDiff(playerVector, goalVector);
    }
 
-   computeGoal(allLetters, blue, red, move) {
-      let goodGoals = [];
+   computeGoal(allLetters: string, blue: number, red: number, move: number) {
+      const goodGoals = [];
       const unoccupiedMap = ~(blue | red);
-      let unoccupied = [];
+      const unoccupied = [];
       for (let x = 0; x < 25; x++) {
          if (((1 << x) & unoccupiedMap) == 1 << x) {
             unoccupied.push(x);
@@ -424,9 +438,9 @@ export class Player {
       }
    }
 
-   groupWords(words, anyl) {
+   groupWords(words: string[], anyl: string) {
       // groups words to limit the number of calls to arrange
-      let wordGroups = Object();
+      const wordGroups = Object();
       for (const word of words) {
          let group = '';
          for (const letter of word) {
@@ -448,7 +462,7 @@ export class Player {
       return wordGroups;
    }
 
-   evaluatePos(allLetters, s) {
+   evaluatePos(allLetters: string, s: Score) {
       // returns a number indicating who is winning, and by how much.  positive, blue; negative, red.
       // TODO: the Python version memoized this method with a hash table
       const ending = (s.blue | s.red).toString(2).split('1').length == 26;
@@ -462,15 +476,14 @@ export class Player {
          let redScore = 0;
          for (let i = 0; i < 25; i++) {
             if (s.blue & (1 << i)) {
-               's.blue: ' + s.blue + ' n[i]: ' + n.get(i) + ' s.blue&n[i]: ' + (s.blue & n.get(i));
-               if ((s.blue & n.get(i)) == n.get(i)) {
+               if ((s.blue & n.get(i)!) == n.get(i)) {
                   blueScore += d[i];
                } else {
                   blueScore += u[i];
                }
             }
             if (s.red & (1 << i)) {
-               if ((s.red & n.get(i)) == n.get(i)) {
+               if ((s.red & n.get(i)!) == n.get(i)) {
                   redScore += d[i];
                } else {
                   redScore += u[i];
@@ -492,25 +505,32 @@ export class Player {
       return total;
    }
 
-   arrange(allLetters, word, s, scores = new Map(), avoidIndexes = [], move = 1) {
+   arrange(
+      allLetters: string,
+      word: string,
+      s: Score,
+      scores: Map<[number, number], number> = new Map<[number, number], number>(),
+      avoidIndexes: number[] = [],
+      move = 1
+   ) {
       // function to evaluate all placements of a word
       // for each unique letter, get a list of lists for the indexes it can be played in
-      let wordhist = Object();
+      const wordhist: Record<string, number> = {};
       for (const letter of word) {
          wordhist[letter] = word.split(letter).length - 1;
       }
-      let letteroptions = [];
+      const letteroptions: number[][][] = [];
       for (const letter in wordhist) {
-         let letterplaces = [];
-         for (const i in allLetters) {
+         const letterplaces: number[] = [];
+         for (let i = 0; i < allLetters.length; i++) {
             const letter2 = allLetters.charAt(i);
             if (letter == letter2 && avoidIndexes.indexOf(i) < 0) {
                //letter matches and we weren't told to avoid this spot
                letterplaces.push(i);
             }
          }
-         let letterCombos = [];
-         for (const combo of this.combinations(letterplaces, wordhist[letter])) {
+         const letterCombos: number[][] = [];
+         for (const combo of this.combinations(letterplaces, wordhist[letter]!)) {
             letterCombos.push(combo);
          }
          letteroptions.push(letterCombos);
@@ -520,9 +540,7 @@ export class Player {
       for (const lst of letteroptions) {
          lenwordplays *= lst.length;
       }
-      let wordplays = Array(lenwordplays)
-         .fill(null)
-         .map(() => []);
+      const wordplays: number[][] = Array.from({ length: lenwordplays }, () => [] as number[]);
       // write the options to wordPlays to get all the ways to play this word
       // [[[1,],[2]],[[3,4],[3,5],[4,5]]] becomes [[1,3,4],[1,3,5],[1,4,5],[2,3,4],[2,3,5],[2,4,5]]
       let divisor = 1;
@@ -532,12 +550,12 @@ export class Player {
          if (letterplays.length > 1) {
             for (let playindex = 0; playindex < lenwordplays; playindex++) {
                const lookup = Math.floor(playindex / cutoff) % letterplays.length;
-               for (const index of letterplays[lookup]) {
-                  wordplays[playindex].push(index);
+               for (const index of letterplays[lookup]!) {
+                  wordplays[playindex]!.push(index);
                }
             }
          } else {
-            for (const i of letterplays[0]) {
+            for (const i of letterplays[0]!) {
                if (move == 1 && ((1 << i) & s.reddef) == 0) {
                   s.blue = s.blue | (1 << i); // set 1 to position i
                   s.red = s.red & ~(1 << i); // set 0 to position i
@@ -570,13 +588,13 @@ export class Player {
       }
    }
 
-   playIsSafe(group, play) {
+   playIsSafe(group: string[], play: string) {
       // determines whether playing a member of a group is safe,
       // that is, it would not allow the opponent to play the last word of this group
       assert(group.indexOf(play) >= 0, 'playIsSafe: play not found in group');
-      let newgroup = [];
-      for (let word of group) {
-         let length = word.length;
+      const newgroup = [];
+      for (const word of group) {
+         const length = word.length;
          if (play.slice(0, length) != word) {
             newgroup.push(word);
          }
@@ -585,18 +603,18 @@ export class Player {
       const category = { single: 0, double: 0, big: 0 };
       newgroup.sort((a, b) => a.length - b.length);
 
-      const children = new Set();
+      const children: Set<string> = new Set<string>();
 
       for (let i = 0; i < newgroup.length; i++) {
-         const word1 = newgroup[i];
+         const word1: string = newgroup[i]!;
          if (children.has(word1)) continue;
 
-         const len1 = word1.length;
-         const mychildren = [];
+         const len1: number = word1.length;
+         const mychildren: string[] = [];
 
          // Collect direct children: longer words starting with word1
          for (let j = i + 1; j < newgroup.length; j++) {
-            const word2 = newgroup[j];
+            const word2: string = newgroup[j]!;
             if (word2.slice(0, len1) === word1) {
                mychildren.push(word2);
                children.add(word2);
@@ -609,10 +627,10 @@ export class Player {
 
             // If any child is a prefix of another child, mark as 'big'
             for (let k = 0; k < mychildren.length - 1; k++) {
-               const child1 = mychildren[k];
-               const lenChild1 = child1.length;
+               const child1: string = mychildren[k]!;
+               const lenChild1: number = child1.length;
                for (let m = k + 1; m < mychildren.length; m++) {
-                  const child2 = mychildren[m];
+                  const child2: string = mychildren[m]!;
                   if (child2.slice(0, lenChild1) === child1) {
                      category.big += 1;
                      doubleFlag = false;
@@ -631,21 +649,27 @@ export class Player {
       return category.single % 2 === 0 && category.double % 2 === 0;
    }
 
-   decide(allLetters, score, needLetters, notLetters, move) {
+   decide(
+      allLetters: string,
+      score: string,
+      needLetters: string,
+      notLetters: string,
+      move: number
+   ) {
       // judges the merits of possible plays for this board
       allLetters = allLetters.toUpperCase();
-      let s = this.convertBoardScore(score);
+      const s: Score = this.convertBoardScore(score);
       let targets = 0;
       if (move == 1) {
          targets = (s.red & ~s.reddef) | (~s.blue & ~s.red);
       } else {
          targets = (s.blue & ~s.bluedef) | (~s.blue & ~s.red);
       }
-      let anyl = '';
-      let dontuse = [];
-      let goal = 0;
-      let maxWordSize = 0;
-      let wordList = [];
+      let anyl: string = '';
+      const dontuse: number[] = [];
+      let goal: number = 0;
+      let maxWordSize: number = 0;
+      let wordList: string[] = [];
       // find goal for notLetters (if none given already)
       if (!notLetters && !needLetters) {
          wordList = this.possible(allLetters);
@@ -656,7 +680,7 @@ export class Player {
             // based on testing goal vs flexible version
             goal = this.computeGoal(allLetters, s.blue, s.red, move);
          }
-         for (const i in allLetters) {
+         for (let i = 0; i < allLetters.length; i++) {
             const letter = allLetters.charAt(i);
             if ((1 << i) & targets) {
                anyl += letter;
@@ -667,7 +691,7 @@ export class Player {
             }
          }
       } else {
-         for (const i in allLetters) {
+         for (let i = 0; i < allLetters.length; i++) {
             const letter = allLetters.charAt(i);
             if ((1 << i) & targets) {
                anyl += letter;
@@ -676,14 +700,14 @@ export class Player {
       }
       wordList = this.concentrate(allLetters, needLetters, notLetters, anyl);
       const wordGroups = this.groupWords(wordList, anyl);
-      let plays = [];
+      const plays = [];
       for (const group in wordGroups) {
          // scores formed by different arrangements of the same group
          // entries of the form [blue,red]:score
-         let scores = new Map();
+         const scores = new Map();
          this.arrange(allLetters, group, { ...s }, scores, dontuse, move);
          const groupsize = wordGroups[group].length;
-         for (let [position, score] of scores) {
+         for (const [position, score] of scores) {
             const playscore = roundTo(score, 3);
             for (const word of wordGroups[group]) {
                plays.push(new Play(playscore, word, groupsize, position[0], position[1]));
@@ -702,15 +726,15 @@ export class Player {
          return plays;
       }
       // we'd like to play the last word of the best group, so check which plays are safe of the best group
-      let bestPlays = new Map();
+      const bestPlays = new Map();
       if (Math.abs(bestScore) < 1000) {
-         for (let [i, play] of plays.entries()) {
+         for (const [i, play] of plays.entries()) {
             if (play.score == bestScore) {
                bestPlays.set(i, play);
             }
          }
-         let bestGroup = [...bestPlays.values().map((play) => play.word)];
-         for (let [i, play] of bestPlays) {
+         const bestGroup = [...bestPlays.values()].map((play) => play.word);
+         for (const [i, play] of bestPlays) {
             if (this.playIsSafe(bestGroup, play.word)) {
                plays[i] = new Play(
                   roundTo(play.score + inc, 4),
@@ -725,8 +749,14 @@ export class Player {
       return plays;
    }
 
-   search(allLetters, score, needLetters, notLetters, move) {
-      let plays = this.decide(allLetters, score, needLetters, notLetters, move);
+   search(
+      allLetters: string,
+      score: string,
+      needLetters: string,
+      notLetters: string,
+      move: number
+   ) {
+      const plays = this.decide(allLetters, score, needLetters, notLetters, move);
       // TODO (?) implement random difficulty
       if (move > 0) {
          plays.sort((a, b) => b.score - a.score);
@@ -736,22 +766,22 @@ export class Player {
       return plays;
    }
 
-   defendedMap(posmap) {
+   defendedMap(posmap: number) {
       const n = this.neighbors;
       let defmap = 0;
       for (let i = 0; i < 25; i++) {
-         if ((posmap & n.get(i)) == n.get(i)) {
+         if ((posmap & n.get(i)!) == n.get(i)) {
             defmap = defmap | (1 << i);
          }
       }
       return defmap;
    }
 
-   endgameCheck(allLetters, blue, red, move) {
+   endgameCheck(allLetters: string, blue: number, red: number, move: number) {
       //called by interface to check a page of search results at a time
       //purpose: an extra depth of search to check if a play loses or forces the end soon
       let zeroletters = '';
-      let zeros = ~blue & ~red;
+      const zeros = ~blue & ~red;
       let anyl = '';
       const bluedef = this.defendedMap(blue);
       const reddef = this.defendedMap(red);
@@ -777,9 +807,9 @@ export class Player {
          // TODO ? original Python memoized this value in this.cache[allLetters+zeroletters]
          gameendingwords = this.concentrate(allLetters, zeroletters);
          const wordgroups = this.groupWords(gameendingwords, anyl);
-         for (let gameendingword in wordgroups) {
-            let scores = new Map();
-            let used = [];
+         for (const gameendingword in wordgroups) {
+            const scores = new Map();
+            const used: number[] = [];
             this.arrange(
                allLetters,
                gameendingword,
@@ -789,13 +819,13 @@ export class Player {
                -move
             );
             if (move == 1) {
-               newscore = scores.values().reduce((prev, curr) => (prev < curr ? prev : curr));
+               newscore = [...scores.values()].reduce((prev, curr) => (prev < curr ? prev : curr));
                if (newscore <= -1000) {
                   losing = true;
                   break;
                }
             } else {
-               newscore = scores.reduce((prev, curr) => (prev > curr ? prev : curr));
+               newscore = [...scores.values()].reduce((prev, curr) => (prev > curr ? prev : curr));
                if (newscore >= 1000) {
                   losing = true;
                   break;
