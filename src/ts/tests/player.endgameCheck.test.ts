@@ -2,20 +2,20 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Player, Play } from '../player';
 let player;
-let words: Record<string, Play> = {};
+const words: Record<string, Play> = {};
 let top10SearchResults = [];
-let letters = 'OXFPALWDWNXMJDGEEPGLGSYST';
-let colors = 'B3W2BWRRBRRB3R3WWWR4';
+const letters = 'OXFPALWDWNXMJDGEEPGLGSYST';
+const colors = 'B3W2BWRRBRRB3R3WWWR4';
 beforeAll(async () => {
    const fs = await import('node:fs/promises');
    const fileUrl = new URL('../../../public/word_lists/en.txt', import.meta.url);
    const text = await fs.readFile(fileUrl, 'utf8');
    const wordList = text.split(/\r?\n/);
    player = new Player(undefined, undefined, wordList);
-   let searchResults = player.search(letters, colors, '', '', 1);
+   const searchResults = player.search(letters, colors, '', '', 1);
    top10SearchResults = searchResults.slice(0, 10);
-   for (let play of top10SearchResults) {
-      let [ending, losing] = player.endgameCheck(letters, play.blue_map, play.red_map, 1);
+   for (const play of top10SearchResults) {
+      const [ending, losing] = player.endgameCheck(letters, play.blue_map, play.red_map, 1);
       words[play.word] = {
          word: play.word,
          group_size: play.group_size,

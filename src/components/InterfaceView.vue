@@ -92,7 +92,7 @@
    onMounted(async () => {
       let wordList: string[] = await getWordList();
       player = new Player(undefined, undefined, wordList);
-      (globalThis as any).player = player; //for console debug purposes
+      if (import.meta.env.DEV) window.player = player; //for console debug purposes
       syncState();
    });
    function syncState() {
@@ -157,6 +157,28 @@
    });
    const canGoPrev = computed(() => searchFirstDisplayed.value > 0);
    const canGoNext = computed(() => searchFirstDisplayed.value < lastStartIndex.value);
+   /**
+    * Returns a string representing the board colors given bitmaps of blue and red positions
+    * @param blue bitmap of blue position
+    * @param red bitmap of red position
+    */
+   function displayScore(blue: number, red: number): string {
+      let s: string = '';
+      for (let i = 0; i < 25; i++) {
+         if ((blue & player.neighbors.get(i)!) == player.neighbors.get(i)) {
+            s += 'B';
+         } else if ((red & player.neighbors.get(i)!) == player.neighbors.get(i)) {
+            s += 'R';
+         } else if (blue & (1 << i)) {
+            s += 'b';
+         } else if (red & (1 << i)) {
+            s += 'r';
+         } else {
+            s += 'w';
+         }
+      }
+      return s;
+   }
 </script>
 
 <template>
@@ -236,8 +258,7 @@
             <th>Score</th>
             <th>Word</th>
             <th>Group Size</th>
-            <th>Blue Map</th>
-            <th>Red Map</th>
+            <th>Board</th>
             <th>Ending Soon</th>
             <th>Losing</th>
          </tr>
@@ -252,8 +273,14 @@
             <td>{{ play.score }}</td>
             <td>{{ play.word }}</td>
             <td>{{ play.group_size }}</td>
-            <td>{{ play.blue_map }}</td>
-            <td>{{ play.red_map }}</td>
+            <td>
+               <BoardGrid
+                  :letters="boardLettersUpperCase"
+                  :colors="displayScore(play.blue_map, play.red_map)"
+                  :theme="theme"
+                  :size="9"
+               />
+            </td>
             <td>{{ play.ending_soon }}</td>
             <td>{{ play.losing }}</td>
          </tr>

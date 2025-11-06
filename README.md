@@ -1,6 +1,6 @@
 # Concentrate
 
-This is javascript web port of my original Python desktop app, Concentrate. Very early days now. Almost no user interface work done so far. Still focusing on the core engine.
+This is javascript web port of my original Python desktop app, Concentrate.
 
 ## Development notes:
 
@@ -8,11 +8,7 @@ Written on the Vue.js framework with Vite.
 
 ### Recommended IDE Setup
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-### Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
+[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
 
 ### Project Setup
 
@@ -24,6 +20,12 @@ npm install
 
 ```sh
 npm run dev
+```
+
+### Live run unit tests with web UI
+
+```sh
+npm run test:ui
 ```
 
 ### Compile and Minify for Production

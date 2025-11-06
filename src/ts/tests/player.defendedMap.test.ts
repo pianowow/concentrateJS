@@ -1,7 +1,7 @@
 // Tests for player.endgameCheck
 import { describe, it, expect } from 'vitest';
 import { Player } from '../player.js';
-let player = new Player();
+const player = new Player();
 describe('Player.defendedMap', () => {
    const cases: [number, number][] = [
       [0, 0],

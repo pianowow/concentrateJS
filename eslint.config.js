@@ -4,6 +4,7 @@ import js from '@eslint/js';
 import pluginVue from 'eslint-plugin-vue';
 import tseslint from 'typescript-eslint';
 import tsParser from '@typescript-eslint/parser';
+import vueParser from 'vue-eslint-parser';
 
 export default defineConfig([
    {
@@ -40,7 +41,6 @@ export default defineConfig([
       rules: {
          //prefer <script setup> over normal <script>
          'vue/component-api-style': ['error', ['script-setup']],
-         'vue/prefer-script-setup': 'error',
       },
    },
 ]);
