@@ -4,14 +4,13 @@
    import { Player, Play } from '../ts/player';
    import { LightColorTheme } from '../ts/board';
    const theme = new LightColorTheme();
-   const wordList = ref([]);
    const searchResults: Ref<Play[]> = ref(new Array<Play>());
-   const searchResultsSize = ref(20);
-   const searchLastDisplayed = ref(-1);
+   const searchResultsSize: Ref<number> = ref(20);
+   const searchFirstDisplayed: Ref<number> = ref(0);
    const searchResultsSlice = computed(() => {
       let myResults = searchResults.value.slice(
-         searchLastDisplayed.value + 1,
-         searchLastDisplayed.value + searchResultsSize.value + 1
+         searchFirstDisplayed.value,
+         searchFirstDisplayed.value + searchResultsSize.value
       );
       let losing, ending_soon;
       for (let play of myResults) {
@@ -108,6 +107,9 @@
       } else {
          searchResults.value = [];
       }
+      if (!canGoNext.value) {
+         handleLastClick();
+      }
    }
    function handleRowClick(index: number) {
       selectedIndex.value = selectedIndex.value === index ? null : index;
@@ -132,6 +134,29 @@
       } //finally {
       return wordList;
    }
+   function handleFirstClick() {
+      searchFirstDisplayed.value = 0;
+   }
+   function handlePrevClick() {
+      searchFirstDisplayed.value -= searchResultsSize.value;
+   }
+   function handleNextClick() {
+      searchFirstDisplayed.value += searchResultsSize.value;
+   }
+   function handleLastClick() {
+      const remain: number = searchResults.value.length % searchResultsSize.value;
+      searchFirstDisplayed.value =
+         searchResults.value.length - (remain == 0 ? searchResultsSize.value : remain);
+   }
+   const lastStartIndex = computed(() => {
+      const len = searchResults.value.length;
+      const size = Math.max(1, Number(searchResultsSize.value) || 1);
+      if (len === 0) return 0;
+      const remain = len % size;
+      return len - (remain === 0 ? size : remain);
+   });
+   const canGoPrev = computed(() => searchFirstDisplayed.value > 0);
+   const canGoNext = computed(() => searchFirstDisplayed.value < lastStartIndex.value);
 </script>
 
 <template>
@@ -182,11 +207,26 @@
       />
    </div>
    <p />
+   <div class="table-controls">
+      <button @click="handleFirstClick()" :disabled="!canGoPrev">First</button>
+      <button @click="handlePrevClick()" :disabled="!canGoPrev">Prev</button>
+      <span class="table-status">
+         {{ searchFirstDisplayed + 1 }}-{{ searchFirstDisplayed + searchResultsSize }} of
+         {{ searchResults.length }}
+      </span>
+      <button @click="handleNextClick()" :disabled="!canGoNext">Next</button>
+      <button @click="handleLastClick()" :disabled="!canGoNext">Last</button>
+      <label for="page-size">Page Size</label>
+      <input
+         id="page-size"
+         class="page-input"
+         type="number"
+         min="1"
+         v-model.number="searchResultsSize"
+      />
+   </div>
    <table>
       <thead>
-         <tr>
-            <th colspan="5">Best {{ searchResultsSize }} Plays</th>
-         </tr>
          <tr>
             <th>Score</th>
             <th>Word</th>
@@ -228,6 +268,18 @@
       align-items: flex-end;
       justify-content: right;
       padding-top: 8px;
+   }
+   button {
+      margin-right: 5px;
+   }
+   label {
+      margin-right: 5px;
+   }
+   .page-input {
+      width: 50px;
+   }
+   .table-status {
+      margin-right: 5px;
    }
    tbody tr {
       cursor: pointer;
