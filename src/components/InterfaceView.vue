@@ -160,7 +160,12 @@
 </script>
 
 <template>
-   <BoardGrid :letters="boardLettersUpperCase" :colors="boardColorsDefended" :theme="theme" />
+   <BoardGrid
+      :letters="boardLettersUpperCase"
+      :colors="boardColorsDefended"
+      :theme="theme"
+      :size="25"
+   />
    <div class="input-div">
       <label for="board-input">Board</label>
       <input

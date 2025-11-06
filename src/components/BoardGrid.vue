@@ -1,7 +1,7 @@
 <script setup lang="ts">
    import { computed } from 'vue';
    import BoardGridRow from './BoardGridRow.vue';
-   const props = defineProps(['letters', 'colors', 'theme']);
+   const props = defineProps(['letters', 'colors', 'theme', 'size']);
    const letters = computed(() => {
       const arr = [];
       for (let i = 0; i < 25; i += 5) {
@@ -25,6 +25,7 @@
          :key="index"
          :letters="rowLetters"
          :colors="colors[index]"
+         :size="props.size"
       />
    </div>
 </template>
