@@ -1,5 +1,7 @@
 # Concentrate
 
+Live version here: [Concentrate](https://pianowow.github.io/concentrateJS/)
+
 This is javascript web port of my original Python desktop app, Concentrate.
 
 ## Development notes:
