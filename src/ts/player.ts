@@ -673,7 +673,7 @@ export class Player {
       // find goal for notLetters (if none given already)
       if (!notLetters && !needLetters) {
          wordList = this.possible(allLetters);
-         for (const word in wordList) {
+         for (const word of wordList) {
             if (word.length > maxWordSize) maxWordSize = word.length;
          }
          if (maxWordSize < 13) {
@@ -717,10 +717,10 @@ export class Player {
       let bestScore = 0;
       let inc;
       if (move == 1 && plays.length > 0) {
-         bestScore = Math.max(...plays.map((play) => play.score));
+         bestScore = plays.reduce((max, p) => (p.score > max ? p.score : max), -Infinity);
          inc = 0.0005;
       } else if (move == -1 && plays.length > 0) {
-         bestScore = Math.min(...plays.map((play) => play.score));
+         bestScore = plays.reduce((min, p) => (p.score < min ? p.score : min), Infinity);
          inc = -0.0005;
       } else {
          return plays;
