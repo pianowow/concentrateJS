@@ -15,7 +15,7 @@
       let losing, ending_soon;
       for (let play of myResults) {
          [ending_soon, losing] = player.endgameCheck(
-            boardLetters.value,
+            boardLettersUpperCase.value,
             play.blue_map,
             play.red_map,
             1
@@ -25,9 +25,10 @@
       }
       return myResults;
    });
-   const boardLetters = ref('OXFPALWDWNXMJDGEEPGLGSYST');
+   const boardLetters = ref('');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
-   const colorLetters = ref('B3W2BWRRBRRB3R3WWWR4');
+   const colorLetters = ref('');
+   const colorLettersUpperCase = computed(() => colorLetters.value.toUpperCase());
    const boardColorsExpanded = computed(() => {
       let lastColor = 'W';
       let answer = '';
@@ -89,10 +90,40 @@
    const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
    const selectedIndex: Ref<number | null> = ref(null);
    let player: Player;
+   function readQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      const board = params.get('board');
+      const colors = params.get('colors');
+      const need = params.get('need');
+      const not = params.get('not');
+      const page = params.get('page');
+      const size = params.get('size');
+      if (colors) colorLetters.value = colors.toUpperCase();
+      if (need) needLetters.value = need.toUpperCase();
+      if (not) notLetters.value = not.toUpperCase();
+      if (size && !Number.isNaN(Number(size))) searchResultsSize.value = Number(size);
+      if (page && !Number.isNaN(Number(page)))
+         searchFirstDisplayed.value = Math.max(0, Number(page));
+      if (board) boardLetters.value = board.toUpperCase();
+   }
+   function updateQueryParams() {
+      const params = new URLSearchParams();
+      if (boardLetters.value) params.set('board', boardLettersUpperCase.value);
+      if (colorLetters.value) params.set('colors', colorLettersUpperCase.value);
+      if (needLetters.value) params.set('need', needLettersUpperCase.value);
+      if (notLetters.value) params.set('not', notLettersUpperCase.value);
+      params.set('size', String(searchResultsSize.value));
+      params.set('page', String(searchFirstDisplayed.value));
+      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+      history.replaceState(null, '', newUrl);
+   }
    onMounted(async () => {
       let wordList: string[] = await getWordList();
       player = new Player(undefined, undefined, wordList);
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
+      readQueryParams();
+      if (!boardLetters.value) boardLetters.value = 'GAETDNDLWHARMGUERSNNSERSD';
+      if (!colorLetters.value) colorLetters.value = 'R2BRWRBRWRBRRWRBBRBWBRWRW';
       syncState();
    });
    function syncState() {
@@ -104,12 +135,13 @@
             notLettersUpperCase.value,
             1
          );
+         if (!canGoNext.value) {
+            handleLastClick();
+         }
       } else {
          searchResults.value = [];
       }
-      if (!canGoNext.value) {
-         handleLastClick();
-      }
+      updateQueryParams();
    }
    function handleRowClick(index: number) {
       selectedIndex.value = selectedIndex.value === index ? null : index;
@@ -136,17 +168,21 @@
    }
    function handleFirstClick() {
       searchFirstDisplayed.value = 0;
+      updateQueryParams();
    }
    function handlePrevClick() {
       searchFirstDisplayed.value -= searchResultsSize.value;
+      updateQueryParams();
    }
    function handleNextClick() {
       searchFirstDisplayed.value += searchResultsSize.value;
+      updateQueryParams();
    }
    function handleLastClick() {
       const remain: number = searchResults.value.length % searchResultsSize.value;
       searchFirstDisplayed.value =
          searchResults.value.length - (remain == 0 ? searchResultsSize.value : remain);
+      updateQueryParams();
    }
    const lastStartIndex = computed(() => {
       const len = searchResults.value.length;
