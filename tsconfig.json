@@ -4,7 +4,7 @@
       "strict": true,
       "noImplicitAny": true,
       "skipLibCheck": true,
-      "types": ["vite/client"],
+      "types": ["vite/client", "node"],
       "baseUrl": ".",
       "paths": { "@/*": ["src/*"] },
       "allowJs": true,

@@ -19,6 +19,6 @@ describe('assert', () => {
    });
 
    it('throws with custom message', () => {
-      expect(() => assert(0, 'Bad thing')).toThrowError(new Error('Bad thing'));
+      expect(() => assert(false, 'Bad thing')).toThrowError(new Error('Bad thing'));
    });
 });

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { Player } from '../player.js';
 let player = new Player();
 describe('Player.defendedMap', () => {
-   const cases = [
+   const cases: [number, number][] = [
       [0, 0],
       [33554431, 33554431],
       [2734099, 0],
