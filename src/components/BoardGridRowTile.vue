@@ -1,4 +1,4 @@
-<script setup>
+<script setup lange="ts">
    const props = defineProps(['letter', 'color']);
 </script>
 

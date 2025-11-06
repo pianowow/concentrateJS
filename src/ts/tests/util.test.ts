@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roundTo, assert } from '../util.js';
+import { roundTo, assert } from '../util';
 
 describe('roundTo', () => {
    it('rounds to specified decimal places', () => {

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
    import { computed } from 'vue';
    import BoardGridRow from './BoardGridRow.vue';
    const props = defineProps(['letters', 'colors', 'theme']);

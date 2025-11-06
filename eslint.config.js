@@ -29,11 +29,18 @@ export default defineConfig([
    {
       files: ['**/*.vue'],
       languageOptions: {
-         parserOptions: { parser: tsParser },
+         parserOptions: {
+            parser: tsParser,
+            sourceType: 'module',
+            ecmaVersion: 'latest',
+            extraFileExtensions: ['.vue'],
+         },
+         parser: vueParser,
       },
       rules: {
-         // prefer <script setup> over normal <script>
+         //prefer <script setup> over normal <script>
          'vue/component-api-style': ['error', ['script-setup']],
+         'vue/prefer-script-setup': 'error',
       },
    },
 ]);

@@ -50,12 +50,14 @@ class Vector {
    }
 }
 
-class Play {
+export class Play {
    score: number = 0;
    word: string = '';
    group_size: number = 0;
    blue_map: number = 0;
    red_map: number = 0;
+   ending_soon?: boolean;
+   losing?: boolean;
    constructor(score = 0, word = '', group_size = 0, blue_map = 0, red_map = 0) {
       this.score = score;
       this.word = word;
@@ -76,7 +78,7 @@ export class Player {
    constructor(
       difficulty = new Difficulty('A', 5, 25, 'S'),
       weights = new Weights(3.1, 1.28, 2.29, 7.78),
-      wordList = []
+      wordList: string[] = []
    ) {
       this.difficulty = difficulty;
       this.weights = weights;

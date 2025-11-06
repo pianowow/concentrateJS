@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
    import BoardGridRowTile from './BoardGridRowTile.vue';
    const props = defineProps(['letters', 'colors']);
 </script>

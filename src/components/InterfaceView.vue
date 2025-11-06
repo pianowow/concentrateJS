@@ -1,11 +1,11 @@
-<script setup>
-   import { ref, onMounted, computed } from 'vue';
+<script setup lang="ts">
+   import { ref, type Ref, onMounted, computed } from 'vue';
    import BoardGrid from './BoardGrid.vue';
-   import { Player } from '../js/player';
-   import { LightColorTheme } from '../js/board';
+   import { Player, Play } from '../ts/player';
+   import { LightColorTheme } from '../ts/board';
    const theme = new LightColorTheme();
    const wordList = ref([]);
-   const searchResults = ref([]);
+   const searchResults: Ref<Play[]> = ref(new Array<Play>());
    const searchResultsSize = ref(20);
    const searchLastDisplayed = ref(-1);
    const searchResultsSlice = computed(() => {
@@ -13,16 +13,16 @@
          searchLastDisplayed.value + 1,
          searchLastDisplayed.value + searchResultsSize.value + 1
       );
-      let losing, endingsoon;
+      let losing, ending_soon;
       for (let play of myResults) {
-         [endingsoon, losing] = player.endgameCheck(
+         [ending_soon, losing] = player.endgameCheck(
             boardLetters.value,
             play.blue_map,
             play.red_map,
             1
          );
          play.losing = losing;
-         play.endingsoon = endingsoon;
+         play.ending_soon = ending_soon;
       }
       return myResults;
    });
@@ -32,7 +32,7 @@
    const boardColorsExpanded = computed(() => {
       let lastColor = 'W';
       let answer = '';
-      for (let i in colorLetters.value) {
+      for (let i = 0; i < colorLetters.value.length; i++) {
          const c = colorLetters.value.charAt(i);
          if ('Rr'.includes(c)) {
             lastColor = 'r';
@@ -88,12 +88,12 @@
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
    const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
-   const selectedIndex = ref(null);
-   let player;
+   const selectedIndex: Ref<number | null> = ref(null);
+   let player: Player;
    onMounted(async () => {
-      let wordList = await getWordList();
+      let wordList: string[] = await getWordList();
       player = new Player(undefined, undefined, wordList);
-      document.player = player; //for console debug purposes
+      (globalThis as any).player = player; //for console debug purposes
       syncState();
    });
    function syncState() {
@@ -109,12 +109,12 @@
          searchResults.value = [];
       }
    }
-   function handleRowClick(index) {
+   function handleRowClick(index: number) {
       selectedIndex.value = selectedIndex.value === index ? null : index;
       // TODO: show what the board looks like after this play
    }
    async function getWordList() {
-      let wordList = [];
+      let wordList: string[] = [];
       try {
          let response;
          response = await fetch(new URL('word_lists/en.txt', document.baseURI));
@@ -143,7 +143,7 @@
          class="input"
          type="text"
          v-model="boardLetters"
-         @input="syncState($event)"
+         @input="syncState()"
          maxlength="25"
       />
    </div>
@@ -154,7 +154,7 @@
          class="input"
          type="text"
          v-model="colorLetters"
-         @input="syncState($event)"
+         @input="syncState()"
          maxlength="25"
       />
    </div>
@@ -209,7 +209,7 @@
             <td>{{ play.group_size }}</td>
             <td>{{ play.blue_map }}</td>
             <td>{{ play.red_map }}</td>
-            <td>{{ play.endingsoon }}</td>
+            <td>{{ play.ending_soon }}</td>
             <td>{{ play.losing }}</td>
          </tr>
       </tbody>
