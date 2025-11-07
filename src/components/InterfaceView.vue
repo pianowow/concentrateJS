@@ -167,7 +167,10 @@
       updateQueryParams();
    }
    function handlePrevClick() {
-      searchFirstDisplayed.value -= searchResultsSize.value;
+      searchFirstDisplayed.value = Math.max(
+         0,
+         searchFirstDisplayed.value - searchResultsSize.value
+      );
       updateQueryParams();
    }
    function handleNextClick() {
@@ -262,7 +265,6 @@
          maxlength="25"
       />
    </div>
-   <p>Colors: {{ boardColorsDefended }} ({{ boardColorsDefended.length }})</p>
    <div class="input-div">
       <label for="need-input">Need</label>
       <input
@@ -290,7 +292,16 @@
       <button @click="handleFirstClick()" :disabled="!canGoPrev">First</button>
       <button @click="handlePrevClick()" :disabled="!canGoPrev">Prev</button>
       <span class="table-status">
-         {{ searchFirstDisplayed + 1 }}-{{ searchFirstDisplayed + searchResultsSize }} of
+         {{
+            searchFirstDisplayed + 1 ===
+            Math.min(searchFirstDisplayed + searchResultsSize, searchResults.length)
+               ? searchFirstDisplayed + 1
+               : searchFirstDisplayed +
+                 1 +
+                 '-' +
+                 Math.min(searchFirstDisplayed + searchResultsSize, searchResults.length)
+         }}
+         of
          {{ searchResults.length }}
       </span>
       <button @click="handleNextClick()" :disabled="!canGoNext">Next</button>
@@ -313,7 +324,6 @@
                Score
             </th>
             <th title="Word to play">Word</th>
-            <th title="Number of words that result in the same score">Group Size</th>
             <th title="Representation of the board after this play">Board</th>
             <th title="Possible finish next move">Finish</th>
          </tr>
@@ -322,7 +332,6 @@
          <tr v-for="(play, index) in searchResultsSlice" :key="index">
             <td>{{ play.score }}</td>
             <td>{{ play.word }}</td>
-            <td>{{ play.group_size }}</td>
             <td>
                <BoardGrid
                   :letters="boardLettersUpperCase"
