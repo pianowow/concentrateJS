@@ -505,14 +505,21 @@ export class Player {
       return total;
    }
 
+   packKey(blue: number, red: number) {
+      return blue * 2 ** 25 + red;
+   }
+   unpackKey(key: number) {
+      return [Math.floor(key / 2 ** 25), key % 2 ** 25];
+   }
+
    arrange(
       allLetters: string,
       word: string,
       s: Score,
-      scores: Map<[number, number], number> = new Map<[number, number], number>(),
+      scores: Map<number, number> = new Map<number, number>(),
       avoidIndexes: number[] = [],
       move = 1
-   ) {
+   ): void {
       // function to evaluate all placements of a word
       // for each unique letter, get a list of lists for the indexes it can be played in
       const wordhist: Record<string, number> = {};
@@ -569,6 +576,7 @@ export class Player {
       // for each play create new maps for what the position looks like using those indexes, and evaluate each position
       const oldred = s.red;
       const oldblue = s.blue;
+      let key: number;
       for (const play of wordplays) {
          for (const i of play) {
             if (move == 1 && ((1 << i) & s.reddef) == 0) {
@@ -579,9 +587,10 @@ export class Player {
                s.red = s.red | (1 << i); // write 1 to position i
             }
          }
-         if (!scores.get([s.blue, s.red])) {
+         key = this.packKey(s.blue, s.red);
+         if (!scores.get(key)) {
             const score = this.evaluatePos(allLetters, s);
-            scores.set([s.blue, s.red], score);
+            scores.set(key, score);
          }
          s.red = oldred;
          s.blue = oldblue;
@@ -707,10 +716,12 @@ export class Player {
          const scores = new Map();
          this.arrange(allLetters, group, { ...s }, scores, dontuse, move);
          const groupsize = wordGroups[group].length;
+         let blue, red;
          for (const [position, score] of scores) {
             const playscore = roundTo(score, 3);
             for (const word of wordGroups[group]) {
-               plays.push(new Play(playscore, word, groupsize, position[0], position[1]));
+               [blue, red] = this.unpackKey(position);
+               plays.push(new Play(playscore, word, groupsize, blue, red));
             }
          }
       }
