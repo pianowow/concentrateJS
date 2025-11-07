@@ -88,7 +88,6 @@
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
    const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
-   const selectedIndex: Ref<number | null> = ref(null);
    let player: Player;
    function readQueryParams() {
       const params = new URLSearchParams(window.location.search);
@@ -122,19 +121,20 @@
       player = new Player(undefined, undefined, wordList);
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
       readQueryParams();
-      if (!boardLetters.value) boardLetters.value = 'GAETDNDLWHARMGUERSNNSERSD';
-      if (!colorLetters.value) colorLetters.value = 'R2BRWRBRWRBRRWRBBRBWBRWRW';
+      if (!boardLetters.value) boardLetters.value = 'concentrateforletterpress';
+      if (!colorLetters.value) colorLetters.value = 'b5b5bw3rr5r5';
       syncState();
    });
    function syncState() {
       if (boardLetters.value.length == 25) {
          searchResults.value = player.search(
             boardLettersUpperCase.value,
-            colorLetters.value,
+            colorLettersUpperCase.value,
             needLettersUpperCase.value,
             notLettersUpperCase.value,
             1
          );
+         // handles case where search results shrink and the paging is beyond the last result
          if (!canGoNext.value) {
             handleLastClick();
          }
@@ -142,10 +142,6 @@
          searchResults.value = [];
       }
       updateQueryParams();
-   }
-   function handleRowClick(index: number) {
-      selectedIndex.value = selectedIndex.value === index ? null : index;
-      // TODO: show what the board looks like after this play
    }
    async function getWordList() {
       let wordList: string[] = [];
@@ -214,6 +210,26 @@
          }
       }
       return s;
+   }
+   /**
+    * Returns the value of the Finish column for a play
+    * @param play - the play to evaluate
+    */
+
+   function computeFinish(play: Play): string {
+      if (play.score > 999) {
+         return '<span title="Winning play">🏆</span>';
+      } else {
+         if (play.ending_soon) {
+            if (play.losing) {
+               return '<span title="Opponent can win next move.">⚠️</span>';
+            } else {
+               return '<span title="Ending soon, but opponent doesn\'t have a win.">🏁</span>';
+            }
+         } else {
+            return '<span title="Game can\'t end next move.">-</span>';
+         }
+      }
    }
 </script>
 
@@ -291,21 +307,19 @@
    <table>
       <thead>
          <tr>
-            <th>Score</th>
-            <th>Word</th>
-            <th>Group Size</th>
-            <th>Board</th>
-            <th>Ending Soon</th>
-            <th>Losing</th>
+            <th
+               title="Engine evaluation of the position.  Positive, blue is winning; negative, red is winning."
+            >
+               Score
+            </th>
+            <th title="Word to play">Word</th>
+            <th title="Number of words that result in the same score">Group Size</th>
+            <th title="Representation of the board after this play">Board</th>
+            <th title="Possible finish next move">Finish</th>
          </tr>
       </thead>
       <tbody>
-         <tr
-            v-for="(play, index) in searchResultsSlice"
-            :key="index"
-            @click="handleRowClick(index)"
-            :class="{ selected: selectedIndex === index }"
-         >
+         <tr v-for="(play, index) in searchResultsSlice" :key="index">
             <td>{{ play.score }}</td>
             <td>{{ play.word }}</td>
             <td>{{ play.group_size }}</td>
@@ -317,8 +331,7 @@
                   :size="9"
                />
             </td>
-            <td>{{ play.ending_soon }}</td>
-            <td>{{ play.losing }}</td>
+            <td v-html="computeFinish(play)"></td>
          </tr>
       </tbody>
    </table>
@@ -348,11 +361,5 @@
    }
    .table-status {
       margin-right: 5px;
-   }
-   tbody tr {
-      cursor: pointer;
-   }
-   tbody tr.selected {
-      background-color: #e6f2ff;
    }
 </style>
