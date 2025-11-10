@@ -247,9 +247,8 @@
       }
       return searchFirstDisplayed.value + 1 >=
          Math.min(searchFirstDisplayed.value + searchResultsSize.value, searchResults.value.length)
-         ? searchFirstDisplayed.value + 1
-         : searchFirstDisplayed.value +
-              1 +
+         ? (searchFirstDisplayed.value + 1).toString()
+         : (searchFirstDisplayed.value + 1).toString() +
               '-' +
               Math.min(
                  searchFirstDisplayed.value + searchResultsSize.value,
