@@ -121,8 +121,10 @@
       player = new Player(undefined, undefined, wordList);
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
       readQueryParams();
-      if (!boardLetters.value) boardLetters.value = 'concentrateforletterpress';
-      if (!colorLetters.value) colorLetters.value = 'b5b5bw3rr5r5';
+      if (!boardLetters.value) {
+         boardLetters.value = 'concentrateforletterpress';
+         colorLetters.value = 'b5b5bw3rr5r5';
+      }
       syncState();
    });
    function syncState() {
@@ -178,6 +180,11 @@
       updateQueryParams();
    }
    function handleLastClick() {
+      if (searchResults.value.length == 0) {
+         searchFirstDisplayed.value = 0;
+         updateQueryParams();
+         return;
+      }
       const remain: number = searchResults.value.length % searchResultsSize.value;
       searchFirstDisplayed.value =
          searchResults.value.length - (remain == 0 ? searchResultsSize.value : remain);
@@ -233,6 +240,23 @@
             return '<span title="Game can\'t end next move.">-</span>';
          }
       }
+   }
+   function tableStatus(): string {
+      if (searchResults.value.length < 2) {
+         return searchResults.value.length + ' of ' + searchResults.value.length;
+      }
+      return searchFirstDisplayed.value + 1 >=
+         Math.min(searchFirstDisplayed.value + searchResultsSize.value, searchResults.value.length)
+         ? searchFirstDisplayed.value + 1
+         : searchFirstDisplayed.value +
+              1 +
+              '-' +
+              Math.min(
+                 searchFirstDisplayed.value + searchResultsSize.value,
+                 searchResults.value.length
+              ) +
+              ' of ' +
+              searchResults.value.length;
    }
 </script>
 
@@ -292,17 +316,7 @@
       <button @click="handleFirstClick()" :disabled="!canGoPrev">First</button>
       <button @click="handlePrevClick()" :disabled="!canGoPrev">Prev</button>
       <span class="table-status">
-         {{
-            searchFirstDisplayed + 1 ===
-            Math.min(searchFirstDisplayed + searchResultsSize, searchResults.length)
-               ? searchFirstDisplayed + 1
-               : searchFirstDisplayed +
-                 1 +
-                 '-' +
-                 Math.min(searchFirstDisplayed + searchResultsSize, searchResults.length)
-         }}
-         of
-         {{ searchResults.length }}
+         {{ tableStatus() }}
       </span>
       <button @click="handleNextClick()" :disabled="!canGoNext">Next</button>
       <button @click="handleLastClick()" :disabled="!canGoNext">Last</button>
