@@ -98,7 +98,16 @@
 
    const colDefs = ref([
       { headerName: 'Score', field: 'score' },
-      { headerName: 'Word', field: 'word' },
+      {
+         headerName: 'Word',
+         field: 'word',
+         filter: 'agTextColumnFilter',
+         filterParams: {
+            filterOptions: ['contains'],
+            textFormatter: (text: string | null | undefined) =>
+               typeof text === 'string' ? text.toUpperCase() : text,
+         },
+      },
       { headerName: 'Board', cellRenderer: markRaw(BoardCellRenderer) },
       { headerName: 'Finish', colId: 'finish', cellRenderer: markRaw(FinishCellRenderer) },
    ]);
