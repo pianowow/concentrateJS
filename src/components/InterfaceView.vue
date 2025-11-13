@@ -1,30 +1,12 @@
 <script setup lang="ts">
-   import { ref, type Ref, onMounted, computed } from 'vue';
+   import { ref, type Ref, onMounted, computed, h, markRaw, defineComponent } from 'vue';
    import BoardGrid from './BoardGrid.vue';
    import { Player, Play } from '../ts/player';
    import { LightColorTheme } from '../ts/board';
+   import { AgGridVue } from 'ag-grid-vue3';
+   import type { GridApi, GridReadyEvent } from 'ag-grid-community';
    const theme = new LightColorTheme();
    const searchResults: Ref<Play[]> = ref(new Array<Play>());
-   const searchResultsSize: Ref<number> = ref(20);
-   const searchFirstDisplayed: Ref<number> = ref(0);
-   const searchResultsSlice = computed(() => {
-      let myResults = searchResults.value.slice(
-         searchFirstDisplayed.value,
-         searchFirstDisplayed.value + searchResultsSize.value
-      );
-      let losing, ending_soon;
-      for (let play of myResults) {
-         [ending_soon, losing] = player.endgameCheck(
-            boardLettersUpperCase.value,
-            play.blue_map,
-            play.red_map,
-            1
-         );
-         play.losing = losing;
-         play.ending_soon = ending_soon;
-      }
-      return myResults;
-   });
    const boardLetters = ref('');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
    const colorLetters = ref('');
@@ -89,20 +71,47 @@
    const notLetters = ref('');
    const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
    let player: Player;
+   const boardPreviewCellSize = 9;
+   const BoardCellRenderer = defineComponent({
+      name: 'BoardCellRenderer',
+      props: { params: { type: Object, required: true } },
+      render() {
+         const p = this.params;
+         const colors = displayScore(p.data.blue_map, p.data.red_map);
+         return h(BoardGrid, {
+            letters: boardLettersUpperCase.value,
+            colors,
+            theme,
+            size: boardPreviewCellSize,
+         });
+      },
+   });
+
+   const FinishCellRenderer = defineComponent({
+      name: 'FinishCellRenderer',
+      props: { params: { type: Object, required: true } },
+      render() {
+         // computeFinish returns a small HTML snippet; we set it as innerHTML.
+         return h('span', { innerHTML: computeFinish(this.params.data as Play) });
+      },
+   });
+
+   const colDefs = ref([
+      { headerName: 'Score', field: 'score' },
+      { headerName: 'Word', field: 'word' },
+      { headerName: 'Board', cellRenderer: markRaw(BoardCellRenderer) },
+      { headerName: 'Finish', colId: 'finish', cellRenderer: markRaw(FinishCellRenderer) },
+   ]);
+
    function readQueryParams() {
       const params = new URLSearchParams(window.location.search);
       const board = params.get('board');
       const colors = params.get('colors');
       const need = params.get('need');
       const not = params.get('not');
-      const page = params.get('page');
-      const size = params.get('size');
       if (colors) colorLetters.value = colors.toUpperCase();
       if (need) needLetters.value = need.toUpperCase();
       if (not) notLetters.value = not.toUpperCase();
-      if (size && !Number.isNaN(Number(size))) searchResultsSize.value = Number(size);
-      if (page && !Number.isNaN(Number(page)))
-         searchFirstDisplayed.value = Math.max(0, Number(page));
       if (board) boardLetters.value = board.toUpperCase();
    }
    function updateQueryParams() {
@@ -111,8 +120,6 @@
       if (colorLetters.value) params.set('colors', colorLettersUpperCase.value);
       if (needLetters.value) params.set('need', needLettersUpperCase.value);
       if (notLetters.value) params.set('not', notLettersUpperCase.value);
-      params.set('size', String(searchResultsSize.value));
-      params.set('page', String(searchFirstDisplayed.value));
       const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
       history.replaceState(null, '', newUrl);
    }
@@ -136,14 +143,11 @@
             notLettersUpperCase.value,
             1
          );
-         // handles case where search results shrink and the paging is beyond the last result
-         if (!canGoNext.value) {
-            handleLastClick();
-         }
       } else {
          searchResults.value = [];
       }
       updateQueryParams();
+      if (gridApi) computeEndgameForCurrentPage();
    }
    async function getWordList() {
       let wordList: string[] = [];
@@ -158,47 +162,12 @@
             .toUpperCase()
             .split(/\r?\n/)
             .filter((word) => word.trim());
-         //.filter((word) => word.toUpperCase().trim());
       } catch (error) {
          console.error('Failed to load word list:', error);
-      } //finally {
+      }
       return wordList;
    }
-   function handleFirstClick() {
-      searchFirstDisplayed.value = 0;
-      updateQueryParams();
-   }
-   function handlePrevClick() {
-      searchFirstDisplayed.value = Math.max(
-         0,
-         searchFirstDisplayed.value - searchResultsSize.value
-      );
-      updateQueryParams();
-   }
-   function handleNextClick() {
-      searchFirstDisplayed.value += searchResultsSize.value;
-      updateQueryParams();
-   }
-   function handleLastClick() {
-      if (searchResults.value.length == 0) {
-         searchFirstDisplayed.value = 0;
-         updateQueryParams();
-         return;
-      }
-      const remain: number = searchResults.value.length % searchResultsSize.value;
-      searchFirstDisplayed.value =
-         searchResults.value.length - (remain == 0 ? searchResultsSize.value : remain);
-      updateQueryParams();
-   }
-   const lastStartIndex = computed(() => {
-      const len = searchResults.value.length;
-      const size = Math.max(1, Number(searchResultsSize.value) || 1);
-      if (len === 0) return 0;
-      const remain = len % size;
-      return len - (remain === 0 ? size : remain);
-   });
-   const canGoPrev = computed(() => searchFirstDisplayed.value > 0);
-   const canGoNext = computed(() => searchFirstDisplayed.value < lastStartIndex.value);
+
    /**
     * Returns a string representing the board colors given bitmaps of blue and red positions
     * @param blue bitmap of blue position
@@ -221,41 +190,60 @@
       }
       return s;
    }
+
+   let gridApi: GridApi | undefined;
+
    /**
     * Returns the value of the Finish column for a play
     * @param play - the play to evaluate
     */
-
    function computeFinish(play: Play): string {
       if (play.score > 999) {
          return '<span title="Winning play">🏆</span>';
       } else {
-         if (play.ending_soon) {
+         if (play.ending_soon === true) {
             if (play.losing) {
                return '<span title="Opponent can win next move.">⚠️</span>';
             } else {
                return '<span title="Ending soon, but opponent doesn\'t have a win.">🏁</span>';
             }
+         } else if (play.ending_soon === undefined) {
+            return '';
          } else {
             return '<span title="Game can\'t end next move.">-</span>';
          }
       }
    }
-   function tableStatus(): string {
-      if (searchResults.value.length < 2) {
-         return searchResults.value.length + ' of ' + searchResults.value.length;
+
+   function computeEndgameForCurrentPage() {
+      if (!gridApi || !player) return;
+      const pageSize = gridApi.paginationGetPageSize();
+      const currentPage = gridApi.paginationGetCurrentPage();
+      const start = currentPage * pageSize;
+      const end = Math.min(start + pageSize, gridApi.getDisplayedRowCount());
+      for (let i = start; i < end; i++) {
+         const rowNode = gridApi.getDisplayedRowAtIndex(i);
+         if (!rowNode) continue;
+         const play = rowNode.data as Play;
+         const [ending_soon, losing] = player.endgameCheck(
+            boardLettersUpperCase.value,
+            play.blue_map,
+            play.red_map,
+            1
+         );
+         play.ending_soon = ending_soon;
+         play.losing = losing;
       }
-      return searchFirstDisplayed.value + 1 >=
-         Math.min(searchFirstDisplayed.value + searchResultsSize.value, searchResults.value.length)
-         ? (searchFirstDisplayed.value + 1).toString()
-         : (searchFirstDisplayed.value + 1).toString() +
-              '-' +
-              Math.min(
-                 searchFirstDisplayed.value + searchResultsSize.value,
-                 searchResults.value.length
-              ) +
-              ' of ' +
-              searchResults.value.length;
+      gridApi.refreshCells({ columns: ['finish'] });
+   }
+
+   function onGridReady(params: GridReadyEvent) {
+      gridApi = params.api;
+      computeEndgameForCurrentPage();
+   }
+
+   function onPaginationChanged() {
+      computeEndgameForCurrentPage();
    }
 </script>
 
@@ -311,52 +299,16 @@
       />
    </div>
    <p />
-   <div class="table-controls">
-      <button @click="handleFirstClick()" :disabled="!canGoPrev">First</button>
-      <button @click="handlePrevClick()" :disabled="!canGoPrev">Prev</button>
-      <span class="table-status">
-         {{ tableStatus() }}
-      </span>
-      <button @click="handleNextClick()" :disabled="!canGoNext">Next</button>
-      <button @click="handleLastClick()" :disabled="!canGoNext">Last</button>
-      <label for="page-size">Page Size</label>
-      <input
-         id="page-size"
-         class="page-input"
-         type="number"
-         min="1"
-         v-model.number="searchResultsSize"
-      />
-   </div>
-   <table>
-      <thead>
-         <tr>
-            <th
-               title="Engine evaluation of the position.  Positive, blue is winning; negative, red is winning."
-            >
-               Score
-            </th>
-            <th title="Word to play">Word</th>
-            <th title="Representation of the board after this play">Board</th>
-            <th title="Possible finish next move">Finish</th>
-         </tr>
-      </thead>
-      <tbody>
-         <tr v-for="(play, index) in searchResultsSlice" :key="index">
-            <td>{{ play.score }}</td>
-            <td>{{ play.word }}</td>
-            <td>
-               <BoardGrid
-                  :letters="boardLettersUpperCase"
-                  :colors="displayScore(play.blue_map, play.red_map)"
-                  :theme="theme"
-                  :size="9"
-               />
-            </td>
-            <td v-html="computeFinish(play)"></td>
-         </tr>
-      </tbody>
-   </table>
+   <ag-grid-vue
+      :rowData="searchResults"
+      :columnDefs="colDefs"
+      style="height: 500px"
+      :pagination="true"
+      :paginationPageSize="20"
+      :rowHeight="boardPreviewCellSize * 5 + 4"
+      @grid-ready="onGridReady"
+      @pagination-changed="onPaginationChanged"
+   ></ag-grid-vue>
 </template>
 
 <style>
