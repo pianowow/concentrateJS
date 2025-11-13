@@ -132,9 +132,21 @@
          boardLetters.value = 'concentrateforletterpress';
          colorLetters.value = 'b5b5bw3rr5r5';
       }
-      syncState();
+      updateQueryParams();
+      runSearch();
    });
+
    function syncState() {
+      updateQueryParams();
+      if (searchDebounceHandle) {
+         clearTimeout(searchDebounceHandle);
+      }
+      searchDebounceHandle = window.setTimeout(() => {
+         runSearch();
+      }, DEBOUNCE_MS);
+   }
+
+   function runSearch() {
       if (boardLetters.value.length == 25) {
          searchResults.value = player.search(
             boardLettersUpperCase.value,
@@ -146,7 +158,6 @@
       } else {
          searchResults.value = [];
       }
-      updateQueryParams();
       if (gridApi) computeEndgameForCurrentPage();
    }
    async function getWordList() {
@@ -192,6 +203,9 @@
    }
 
    let gridApi: GridApi | undefined;
+   // Debounce state for searches
+   let searchDebounceHandle: number | undefined;
+   const DEBOUNCE_MS = 400;
 
    /**
     * Returns the value of the Finish column for a play
