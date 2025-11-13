@@ -282,27 +282,31 @@ export class Player {
       let prevchar = 'W';
       const s = new Score();
       for (const char of scoreString) {
-         if (char == 'B') {
-            s.blue = s.blue | (1 << i);
-            prevchar = char;
-            i += 1;
-         } else if (char == 'R') {
-            s.red = s.red | (1 << i);
-            prevchar = char;
-            i += 1;
-         } else if ('0123456789'.includes(char)) {
-            const num = parseInt(char);
-            for (let d = 1; d < num; d++) {
-               if (prevchar == 'R') {
-                  s.red = s.red | (1 << i);
-               } else if (prevchar == 'B') {
-                  s.blue = s.blue | (1 << i);
+         if (i < 25) {
+            if (char == 'B') {
+               s.blue = s.blue | (1 << i);
+               prevchar = char;
+               i += 1;
+            } else if (char == 'R') {
+               s.red = s.red | (1 << i);
+               prevchar = char;
+               i += 1;
+            } else if ('0123456789'.includes(char)) {
+               const num = parseInt(char);
+               for (let d = 1; d < num; d++) {
+                  if (i < 25) {
+                     if (prevchar == 'R') {
+                        s.red = s.red | (1 << i);
+                     } else if (prevchar == 'B') {
+                        s.blue = s.blue | (1 << i);
+                     }
+                  }
+                  i += 1;
                }
+            } else {
+               prevchar = 'W';
                i += 1;
             }
-         } else {
-            prevchar = 'W';
-            i += 1;
          }
       }
       for (i = 0; i < 25; i++) {
@@ -438,9 +442,9 @@ export class Player {
       }
    }
 
-   groupWords(words: string[], anyl: string) {
+   groupWords(words: string[], anyl: string): Record<string, string[]> {
       // groups words to limit the number of calls to arrange
-      const wordGroups = Object();
+      const wordGroups: Record<string, string[]> = {};
       for (const word of words) {
          let group = '';
          for (const letter of word) {
@@ -454,7 +458,7 @@ export class Player {
          }
          group = group.split('').sort().join(''); //we care if the group has the same letters, not the same order of letters
          if (wordGroups[group]) {
-            wordGroups[group].push(word);
+            wordGroups[group]!.push(word);
          } else {
             wordGroups[group] = [word];
          }
@@ -713,13 +717,13 @@ export class Player {
       for (const group in wordGroups) {
          // scores formed by different arrangements of the same group
          // entries of the form [blue,red]:score
-         const scores = new Map();
+         const scores: Map<number, number> = new Map();
          this.arrange(allLetters, group, { ...s }, scores, dontuse, move);
-         const groupsize = wordGroups[group].length;
+         const groupsize = wordGroups[group]!.length;
          let blue, red;
          for (const [position, score] of scores) {
             const playscore = roundTo(score, 3);
-            for (const word of wordGroups[group]) {
+            for (const word of wordGroups[group]!) {
                [blue, red] = this.unpackKey(position);
                plays.push(new Play(playscore, word, groupsize, blue, red));
             }
