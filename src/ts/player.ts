@@ -53,15 +53,13 @@ class Vector {
 export class Play {
    score: number = 0;
    word: string = '';
-   group_size: number = 0;
    blue_map: number = 0;
    red_map: number = 0;
    ending_soon?: boolean;
    losing?: boolean;
-   constructor(score = 0, word = '', group_size = 0, blue_map = 0, red_map = 0) {
+   constructor(score = 0, word = '', blue_map = 0, red_map = 0) {
       this.score = score;
       this.word = word;
-      this.group_size = group_size;
       this.blue_map = blue_map;
       this.red_map = red_map;
    }
@@ -719,13 +717,12 @@ export class Player {
          // entries of the form [blue,red]:score
          const scores: Map<number, number> = new Map();
          this.arrange(allLetters, group, { ...s }, scores, dontuse, move);
-         const groupsize = wordGroups[group]!.length;
          let blue, red;
          for (const [position, score] of scores) {
             const playscore = roundTo(score, 3);
             for (const word of wordGroups[group]!) {
                [blue, red] = this.unpackKey(position);
-               plays.push(new Play(playscore, word, groupsize, blue, red));
+               plays.push(new Play(playscore, word, blue, red));
             }
          }
       }
@@ -754,7 +751,6 @@ export class Player {
                plays[i] = new Play(
                   roundTo(play.score + inc, 4),
                   play.word,
-                  play.group_size,
                   play.blue_map,
                   play.red_map
                );
