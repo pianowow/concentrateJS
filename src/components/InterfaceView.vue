@@ -4,8 +4,10 @@
    import { Player, Play } from '../ts/player';
    import { LightColorTheme } from '../ts/board';
    import { AgGridVue } from 'ag-grid-vue3';
-   import type { GridApi, GridReadyEvent } from 'ag-grid-community';
+   import type { GridApi, GridReadyEvent, AutoSizeStrategy } from 'ag-grid-community';
+
    const theme = new LightColorTheme();
+   const historyList: Ref<Play[]> = ref(new Array<Play>());
    const searchResults: Ref<Play[]> = ref(new Array<Play>());
    const boardLetters = ref('');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
@@ -66,51 +68,15 @@
       }
       return answer;
    });
+   // search fitler toggle
+   const showSearchFilters = ref(false);
+   const showBoardEdit = ref(false);
    const needLetters = ref('');
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
    const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
    let player: Player;
    const boardPreviewCellSize = 9;
-   const BoardCellRenderer = defineComponent({
-      name: 'BoardCellRenderer',
-      props: { params: { type: Object, required: true } },
-      render() {
-         const p = this.params;
-         const colors = displayScore(p.data.blue_map, p.data.red_map);
-         return h(BoardGrid, {
-            letters: boardLettersUpperCase.value,
-            colors,
-            theme,
-            size: boardPreviewCellSize,
-         });
-      },
-   });
-
-   const FinishCellRenderer = defineComponent({
-      name: 'FinishCellRenderer',
-      props: { params: { type: Object, required: true } },
-      render() {
-         // computeFinish returns a small HTML snippet; we set it as innerHTML.
-         return h('span', { innerHTML: computeFinish(this.params.data as Play) });
-      },
-   });
-
-   const colDefs = ref([
-      { headerName: 'Score', field: 'score' },
-      {
-         headerName: 'Word',
-         field: 'word',
-         filter: 'agTextColumnFilter',
-         filterParams: {
-            filterOptions: ['contains'],
-            textFormatter: (text: string | null | undefined) =>
-               typeof text === 'string' ? text.toUpperCase() : text,
-         },
-      },
-      { headerName: 'Board', cellRenderer: markRaw(BoardCellRenderer) },
-      { headerName: 'Finish', colId: 'finish', cellRenderer: markRaw(FinishCellRenderer) },
-   ]);
 
    function readQueryParams() {
       const params = new URLSearchParams(window.location.search);
@@ -123,6 +89,7 @@
       if (not) notLetters.value = not.toUpperCase();
       if (board) boardLetters.value = board.toUpperCase();
    }
+
    function updateQueryParams() {
       const params = new URLSearchParams();
       if (boardLetters.value) params.set('board', boardLettersUpperCase.value);
@@ -132,6 +99,11 @@
       const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
       history.replaceState(null, '', newUrl);
    }
+
+   // Debounce state for searches
+   let searchDebounceHandle: number | undefined;
+   const DEBOUNCE_MS = 400;
+
    onMounted(async () => {
       let wordList: string[] = await getWordList();
       player = new Player(undefined, undefined, wordList);
@@ -140,6 +112,9 @@
       if (!boardLetters.value) {
          boardLetters.value = 'concentrateforletterpress';
          colorLetters.value = 'b5b5bw3rr5r5';
+      }
+      if (needLetters.value || notLetters.value) {
+         showSearchFilters.value = true;
       }
       updateQueryParams();
       runSearch();
@@ -169,6 +144,7 @@
       }
       if (gridApi) computeEndgameForCurrentPage();
    }
+
    async function getWordList() {
       let wordList: string[] = [];
       try {
@@ -212,9 +188,55 @@
    }
 
    let gridApi: GridApi | undefined;
-   // Debounce state for searches
-   let searchDebounceHandle: number | undefined;
-   const DEBOUNCE_MS = 400;
+
+   const BoardCellRenderer = defineComponent({
+      name: 'BoardCellRenderer',
+      props: { params: { type: Object, required: true } },
+      render() {
+         const p = this.params;
+         const colors = displayScore(p.data.blue_map, p.data.red_map);
+         return h(BoardGrid, {
+            letters: boardLettersUpperCase.value,
+            colors,
+            theme,
+            size: boardPreviewCellSize,
+         });
+      },
+   });
+
+   const FinishCellRenderer = defineComponent({
+      name: 'FinishCellRenderer',
+      props: { params: { type: Object, required: true } },
+      render() {
+         // computeFinish returns a small HTML snippet; we set it as innerHTML.
+         return h('span', { innerHTML: computeFinish(this.params.data as Play) });
+      },
+   });
+
+   const historyColDefs = ref([
+      {
+         headerName: 'Word',
+         field: 'word',
+      },
+      { headerName: 'Score', field: 'score' },
+      { headerName: 'Board', cellRenderer: markRaw(BoardCellRenderer) },
+   ]);
+
+   const searchColDefs = ref([
+      {
+         headerName: 'Word',
+         field: 'word',
+         filter: 'agTextColumnFilter',
+         filterParams: {
+            filterOptions: ['contains'],
+            textFormatter: (text: string | null | undefined) =>
+               typeof text === 'string' ? text.toUpperCase() : text,
+         },
+      },
+      { headerName: 'Score', field: 'score' },
+      { headerName: 'Board', cellRenderer: markRaw(BoardCellRenderer) },
+      { headerName: 'Finish', colId: 'finish', cellRenderer: markRaw(FinishCellRenderer) },
+   ]);
 
    /**
     * Returns the value of the Finish column for a play
@@ -260,81 +282,153 @@
       gridApi.refreshCells({ columns: ['finish'] });
    }
 
-   function onGridReady(params: GridReadyEvent) {
+   const autoSizeStrategy: AutoSizeStrategy = { type: 'fitCellContents' };
+
+   function onSearchGridReady(params: GridReadyEvent) {
       gridApi = params.api;
       computeEndgameForCurrentPage();
    }
 
-   function onPaginationChanged() {
+   function onSearchPaginationChanged() {
       computeEndgameForCurrentPage();
    }
 </script>
 
 <template>
-   <BoardGrid
-      :letters="boardLettersUpperCase"
-      :colors="boardColorsDefended"
-      :theme="theme"
-      :size="25"
-   />
-   <div class="input-div">
-      <label for="board-input">Board</label>
-      <input
-         id="board-input"
-         class="input"
-         type="text"
-         v-model="boardLetters"
-         @input="syncState()"
-         maxlength="25"
-      />
+   <div class="layout">
+      <div class="left-pane">
+         <BoardGrid
+            :letters="boardLettersUpperCase"
+            :colors="boardColorsDefended"
+            :theme="theme"
+            :size="25"
+         />
+         <div class="board-edit">
+            <button
+               title="click to show/hide"
+               class="filters-toggle"
+               type="button"
+               @click="showBoardEdit = !showBoardEdit"
+               :aria-expanded="showBoardEdit"
+               aria-controls="board-input"
+            >
+               Edit Board
+            </button>
+            <div class="board-input" v-show="showBoardEdit">
+               <div class="input-div">
+                  <label for="board-input">Board</label>
+                  <input
+                     id="board-input"
+                     class="input"
+                     type="text"
+                     v-model="boardLetters"
+                     @input="syncState()"
+                     maxlength="25"
+                  />
+               </div>
+               <div class="input-div">
+                  <label for="color-input">Color</label>
+                  <input
+                     id="color-input"
+                     class="input"
+                     type="text"
+                     v-model="colorLetters"
+                     @input="syncState()"
+                     maxlength="25"
+                  />
+               </div>
+            </div>
+         </div>
+         <div class="history-grid">
+            <ag-grid-vue
+               :rowData="historyList"
+               :columnDefs="historyColDefs"
+               :autoSizeStrategy="autoSizeStrategy"
+               style="height: 100%"
+               :pagination="true"
+               :paginationPageSize="20"
+               :rowHeight="boardPreviewCellSize * 5 + 4"
+            ></ag-grid-vue>
+         </div>
+      </div>
+      <div class="right-pane">
+         <div class="filters-section">
+            <div class="filters-header">
+               <button
+                  title="click to show/hide"
+                  class="filters-toggle"
+                  type="button"
+                  @click="showSearchFilters = !showSearchFilters"
+                  :aria-expanded="showSearchFilters"
+                  aria-controls="filters-panel"
+               >
+                  Filters
+               </button>
+            </div>
+            <div id="filters-panel" class="filters-panel" v-show="showSearchFilters">
+               <div class="input-div">
+                  <label for="need-input">Need</label>
+                  <input
+                     id="need-input"
+                     class="input"
+                     type="text"
+                     v-model="needLetters"
+                     @input="syncState"
+                     maxlength="25"
+                  />
+               </div>
+               <div class="input-div">
+                  <label for="not-input">Not</label>
+                  <input
+                     id="not-input"
+                     class="input"
+                     type="text"
+                     v-model="notLetters"
+                     @input="syncState"
+                     maxlength="25"
+                  />
+               </div>
+            </div>
+         </div>
+         <div class="results-grid">
+            <ag-grid-vue
+               :rowData="searchResults"
+               :columnDefs="searchColDefs"
+               :autoSizeStrategy="autoSizeStrategy"
+               style="height: 100%"
+               :pagination="true"
+               :paginationPageSize="20"
+               :rowHeight="boardPreviewCellSize * 5 + 4"
+               @grid-ready="onSearchGridReady"
+               @pagination-changed="onSearchPaginationChanged"
+            ></ag-grid-vue>
+         </div>
+      </div>
    </div>
-   <div class="input-div">
-      <label for="color-input">Color</label>
-      <input
-         id="color-input"
-         class="input"
-         type="text"
-         v-model="colorLetters"
-         @input="syncState()"
-         maxlength="25"
-      />
-   </div>
-   <div class="input-div">
-      <label for="need-input">Need</label>
-      <input
-         id="need-input"
-         class="input"
-         type="text"
-         v-model="needLetters"
-         @input="syncState"
-         maxlength="25"
-      />
-   </div>
-   <div class="input-div">
-      <label for="not-input">Not</label>
-      <input
-         id="not-input"
-         class="input"
-         type="text"
-         v-model="notLetters"
-         @input="syncState"
-         maxlength="25"
-      />
-   </div>
-   <p />
-   <ag-grid-vue
-      :rowData="searchResults"
-      :columnDefs="colDefs"
-      style="height: 500px"
-      :pagination="true"
-      :paginationPageSize="20"
-      :rowHeight="boardPreviewCellSize * 5 + 4"
-      @grid-ready="onGridReady"
-      @pagination-changed="onPaginationChanged"
-   ></ag-grid-vue>
 </template>
 
 <style>
+   .layout {
+      display: flex;
+      height: 100dvh;
+      gap: 8px;
+   }
+   .left-pane,
+   .right-pane {
+      width: 45%;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+   }
+   .right-pane {
+      width: 55%;
+   }
+   .history-grid,
+   .results-grid {
+      flex: 1 1 auto;
+      min-height: 0;
+   }
    .input {
       width: 230px;
       margin-left: 5px;
@@ -345,18 +439,56 @@
       display: flex;
       align-items: flex-end;
       justify-content: right;
-      padding-top: 8px;
-   }
-   button {
-      margin-right: 5px;
+      padding-bottom: 8px;
    }
    label {
-      margin-right: 5px;
+      margin-right: 4px;
+   }
+   .board-edit {
+      padding-top: 4px;
    }
    .page-input {
       width: 50px;
    }
-   .table-status {
-      margin-right: 5px;
+   .filters-section {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+   }
+   .filters-toggle {
+      background: transparent;
+      border: none;
+      font: inherit;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding-bottom: 8px;
+   }
+   .filters-toggle::before {
+      content: '▸';
+      display: inline-block;
+      transform-origin: center;
+      transition: transform 0.2s ease;
+   }
+   .filters-toggle[aria-expanded='true']::before {
+      transform: rotate(90deg);
+   }
+   @media (max-width: 900px) {
+      .layout {
+         flex-direction: column;
+         height: auto;
+      }
+      .left-pane {
+         width: 100%;
+      }
+      .right-pane {
+         width: 100%;
+      }
+      .history-grid,
+      .results-grid {
+         flex: 0 0 auto;
+         height: 420px;
+      }
    }
 </style>
