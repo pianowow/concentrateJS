@@ -1,4 +1,5 @@
 import { roundTo, assert } from './util';
+import { neighbors } from './board';
 
 class Difficulty {
    listsize: string;
@@ -28,7 +29,7 @@ class Weights {
    }
 }
 
-class Score {
+export class Score {
    blue: number;
    red: number;
    bluedef: number;
@@ -69,7 +70,7 @@ export class Player {
    difficulty: Difficulty;
    weights: Weights;
    name: string;
-   neighbors: Map<number, number>;
+   neighbors: number[];
    cache;
    hashtable;
    wordList: string[];
@@ -81,8 +82,7 @@ export class Player {
       this.difficulty = difficulty;
       this.weights = weights;
       this.name = 'stable - player0';
-      this.neighbors = new Map();
-      this.buildNeighbors();
+      this.neighbors = neighbors;
       this.cache = Object();
       this.hashtable = Object();
       assert(Array.isArray(wordList), 'Player.new requires a wordList array');
@@ -90,34 +90,6 @@ export class Player {
          .map((w: string) => (typeof w === 'string' ? w.toUpperCase().trim() : ''))
          .filter(Boolean);
    }
-
-   // TODO: move to board
-   saveNeighbor(square: number, nsquare: number) {
-      // helper for buildNeighbors
-      if (nsquare >= 0 && nsquare < 25) {
-         if (this.neighbors.has(square)) {
-            this.neighbors.set(square, this.neighbors.get(square)! | (1 << nsquare));
-         } else {
-            this.neighbors.set(square, 1 << nsquare);
-         }
-      }
-   }
-
-   // TODO: move to board
-   buildNeighbors() {
-      for (let square = 0; square < 25; square++) {
-         this.saveNeighbor(square, square);
-         this.saveNeighbor(square, square - 5);
-         if (square % 5 != 4) this.saveNeighbor(square, square + 1);
-         if (square % 5 != 0) this.saveNeighbor(square, square - 1);
-         this.saveNeighbor(square, square + 5);
-      }
-   }
-
-   // roundTo(num, decimalPlaces) {
-   //    const factor = Math.pow(10, decimalPlaces);
-   //    return Math.round(num * factor) / factor;
-   // }
 
    possible(letters: string) {
       letters = letters.toUpperCase();
@@ -308,10 +280,10 @@ export class Player {
          }
       }
       for (i = 0; i < 25; i++) {
-         if ((s.blue & this.neighbors.get(i)!) == this.neighbors.get(i)) {
+         if ((s.blue & this.neighbors[i]!) == this.neighbors[i]) {
             s.bluedef = s.bluedef | (1 << i);
          }
-         if ((s.red & this.neighbors.get(i)!) == this.neighbors.get(i)) {
+         if ((s.red & this.neighbors[i]!) == this.neighbors[i]) {
             s.reddef = s.reddef | (1 << i);
          }
       }
@@ -478,14 +450,14 @@ export class Player {
          let redScore = 0;
          for (let i = 0; i < 25; i++) {
             if (s.blue & (1 << i)) {
-               if ((s.blue & n.get(i)!) == n.get(i)) {
+               if ((s.blue & n[i]!) == n[i]) {
                   blueScore += d[i];
                } else {
                   blueScore += u[i];
                }
             }
             if (s.red & (1 << i)) {
-               if ((s.red & n.get(i)!) == n.get(i)) {
+               if ((s.red & n[i]!) == n[i]) {
                   redScore += d[i];
                } else {
                   redScore += u[i];
@@ -781,7 +753,7 @@ export class Player {
       const n = this.neighbors;
       let defmap = 0;
       for (let i = 0; i < 25; i++) {
-         if ((posmap & n.get(i)!) == n.get(i)) {
+         if ((posmap & n[i]!) == n[i]) {
             defmap = defmap | (1 << i);
          }
       }
