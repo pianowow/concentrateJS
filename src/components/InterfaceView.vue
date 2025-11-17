@@ -1,14 +1,28 @@
 <script setup lang="ts">
    import { ref, type Ref, onMounted, computed, h, markRaw, defineComponent } from 'vue';
    import BoardGrid from './BoardGrid.vue';
-   import { Player, Play } from '../ts/player';
-   import { LightColorTheme } from '../ts/board';
+   import SearchResults from './SearchResults.vue';
+   import { Player, Play, Score } from '../ts/player';
+   import { LightColorTheme, mapsToColors } from '../ts/board';
+   import { roundTo } from '../ts/util';
    import { AgGridVue } from 'ag-grid-vue3';
-   import type { GridApi, GridReadyEvent, AutoSizeStrategy } from 'ag-grid-community';
+   import type { AutoSizeStrategy, RowClickedEvent } from 'ag-grid-community';
 
-   const theme = new LightColorTheme();
-   const historyList: Ref<Play[]> = ref(new Array<Play>());
-   const searchResults: Ref<Play[]> = ref(new Array<Play>());
+   const theme = ref(new LightColorTheme());
+   class HistoryEntry {
+      type: number; //1 blue, -1 red, 0 initial position
+      text: string; //word played or board letters
+      colors: string;
+      score: number;
+      constructor(type: number, text: string, colors: string, score: number) {
+         this.type = type;
+         this.text = text;
+         this.colors = colors;
+         this.score = score;
+      }
+   }
+   const showBoardEdit = ref(false);
+   const moveIndicator = ref<number>(1);
    const boardLetters = ref('');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
    const colorLetters = ref('');
@@ -25,7 +39,7 @@
             lastColor = 'b';
             answer += lastColor;
          } else if ('Ww'.includes(c)) {
-            lastColor = 'w';
+            lastColor = 'W';
             answer += lastColor;
          } else if ('23456789'.includes(c)) {
             for (let n = 2; n < parseInt(c); n++) {
@@ -37,6 +51,9 @@
             answer = answer.slice(0, 25);
          }
       }
+      if (answer.length < 25) {
+         return answer.padEnd(25, 'W');
+      }
       return answer;
    });
    const boardColorsDefended = computed(() => {
@@ -44,7 +61,7 @@
       const colors = boardColorsExpanded.value;
       for (let i = 0; i < 25; i++) {
          const c = colors.charAt(i);
-         if (c === 'w') {
+         if (c === 'W') {
             answer += c;
             continue;
          }
@@ -68,34 +85,33 @@
       }
       return answer;
    });
-   // search fitler toggle
+   const historyList: Ref<HistoryEntry[]> = ref(new Array<HistoryEntry>());
+   const selectedHistoryIndex: Ref<number | null> = ref(null);
    const showSearchFilters = ref(false);
-   const showBoardEdit = ref(false);
    const needLetters = ref('');
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
    const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
-   let player: Player;
+   const searchResultsKey = ref(0);
+   const searchResults: Ref<Play[]> = ref(new Array<Play>());
+   let player: Ref<Player | null> = ref(null);
    const boardPreviewCellSize = 9;
 
    function readQueryParams() {
       const params = new URLSearchParams(window.location.search);
       const board = params.get('board');
       const colors = params.get('colors');
-      const need = params.get('need');
-      const not = params.get('not');
+      const move = params.get('move');
       if (colors) colorLetters.value = colors.toUpperCase();
-      if (need) needLetters.value = need.toUpperCase();
-      if (not) notLetters.value = not.toUpperCase();
       if (board) boardLetters.value = board.toUpperCase();
+      if (move) moveIndicator.value = Number.parseInt(move);
    }
 
    function updateQueryParams() {
       const params = new URLSearchParams();
       if (boardLetters.value) params.set('board', boardLettersUpperCase.value);
       if (colorLetters.value) params.set('colors', colorLettersUpperCase.value);
-      if (needLetters.value) params.set('need', needLettersUpperCase.value);
-      if (notLetters.value) params.set('not', notLettersUpperCase.value);
+      if (moveIndicator.value) params.set('move', moveIndicator.value.toString());
       const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
       history.replaceState(null, '', newUrl);
    }
@@ -106,7 +122,7 @@
 
    onMounted(async () => {
       let wordList: string[] = await getWordList();
-      player = new Player(undefined, undefined, wordList);
+      player.value = new Player(undefined, undefined, wordList);
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
       readQueryParams();
       if (!boardLetters.value) {
@@ -117,8 +133,28 @@
          showSearchFilters.value = true;
       }
       updateQueryParams();
+      clearHistory();
       runSearch();
    });
+
+   function clearHistory() {
+      historyList.value = new Array<HistoryEntry>();
+      let score = 0;
+      if (player.value) {
+         player.value.possible(boardLettersUpperCase.value);
+         let s: Score = player.value.convertBoardScore(boardColorsDefended.value);
+         score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
+      }
+      historyList.value.push(
+         new HistoryEntry(0, boardLettersUpperCase.value, boardColorsDefended.value, score)
+      );
+      selectedHistoryIndex.value = null;
+   }
+
+   function clearHistorySyncState() {
+      clearHistory();
+      syncState();
+   }
 
    function syncState() {
       updateQueryParams();
@@ -131,18 +167,21 @@
    }
 
    function runSearch() {
-      if (boardLetters.value.length == 25) {
-         searchResults.value = player.search(
+      if (boardLetters.value.length == 25 && boardColorsDefended.value.split('W').length > 1) {
+         if (!player.value) {
+            searchResults.value = [];
+            return;
+         }
+         searchResults.value = player.value.search(
             boardLettersUpperCase.value,
             colorLettersUpperCase.value,
             needLettersUpperCase.value,
             notLettersUpperCase.value,
-            1
+            moveIndicator.value
          );
       } else {
          searchResults.value = [];
       }
-      if (gridApi) computeEndgameForCurrentPage();
    }
 
    async function getWordList() {
@@ -164,134 +203,68 @@
       return wordList;
    }
 
-   /**
-    * Returns a string representing the board colors given bitmaps of blue and red positions
-    * @param blue bitmap of blue position
-    * @param red bitmap of red position
-    */
-   function displayScore(blue: number, red: number): string {
-      let s: string = '';
-      for (let i = 0; i < 25; i++) {
-         if ((blue & player.neighbors.get(i)!) == player.neighbors.get(i)) {
-            s += 'B';
-         } else if ((red & player.neighbors.get(i)!) == player.neighbors.get(i)) {
-            s += 'R';
-         } else if (blue & (1 << i)) {
-            s += 'b';
-         } else if (red & (1 << i)) {
-            s += 'r';
-         } else {
-            s += 'w';
-         }
+   function addPlayToHistory(play: Play) {
+      const colors = mapsToColors(play.blue_map, play.red_map);
+      const word = (play.word ?? '').toUpperCase();
+      const score = play.score ?? 0;
+
+      if (selectedHistoryIndex.value !== null) {
+         historyList.value = historyList.value.slice(0, selectedHistoryIndex.value + 1);
       }
-      return s;
+
+      historyList.value.push(new HistoryEntry(moveIndicator.value, word, colors, score));
+      selectedHistoryIndex.value = null;
+      colorLetters.value = colors;
+      moveIndicator.value = -moveIndicator.value;
+      searchResults.value = [];
+      searchResultsKey.value++;
+      syncState();
    }
 
-   let gridApi: GridApi | undefined;
-
-   const BoardCellRenderer = defineComponent({
+   const HistoryBoardCellRenderer = defineComponent({
       name: 'BoardCellRenderer',
       props: { params: { type: Object, required: true } },
       render() {
          const p = this.params;
-         const colors = displayScore(p.data.blue_map, p.data.red_map);
+         const colors = p.data.colors;
          return h(BoardGrid, {
             letters: boardLettersUpperCase.value,
             colors,
-            theme,
+            theme: theme.value,
             size: boardPreviewCellSize,
          });
-      },
-   });
-
-   const FinishCellRenderer = defineComponent({
-      name: 'FinishCellRenderer',
-      props: { params: { type: Object, required: true } },
-      render() {
-         // computeFinish returns a small HTML snippet; we set it as innerHTML.
-         return h('span', { innerHTML: computeFinish(this.params.data as Play) });
       },
    });
 
    const historyColDefs = ref([
       {
          headerName: 'Word',
-         field: 'word',
+         field: 'text',
       },
       { headerName: 'Score', field: 'score' },
-      { headerName: 'Board', cellRenderer: markRaw(BoardCellRenderer) },
+      { headerName: 'Board', cellRenderer: markRaw(HistoryBoardCellRenderer) },
    ]);
 
-   const searchColDefs = ref([
-      {
-         headerName: 'Word',
-         field: 'word',
-         filter: 'agTextColumnFilter',
-         filterParams: {
-            filterOptions: ['contains'],
-            textFormatter: (text: string | null | undefined) =>
-               typeof text === 'string' ? text.toUpperCase() : text,
-         },
-      },
-      { headerName: 'Score', field: 'score' },
-      { headerName: 'Board', cellRenderer: markRaw(BoardCellRenderer) },
-      { headerName: 'Finish', colId: 'finish', cellRenderer: markRaw(FinishCellRenderer) },
-   ]);
-
-   /**
-    * Returns the value of the Finish column for a play
-    * @param play - the play to evaluate
-    */
-   function computeFinish(play: Play): string {
-      if (play.score > 999) {
-         return '<span title="Winning play">🏆</span>';
-      } else {
-         if (play.ending_soon === true) {
-            if (play.losing) {
-               return '<span title="Opponent can win next move.">⚠️</span>';
-            } else {
-               return '<span title="Ending soon, but opponent doesn\'t have a win.">🏁</span>';
-            }
-         } else if (play.ending_soon === undefined) {
-            return '';
-         } else {
-            return '<span title="Game can\'t end next move.">-</span>';
+   function onHistoryRowClicked(event: RowClickedEvent<HistoryEntry>) {
+      const entry = event.data;
+      if (!entry) return;
+      const idx = historyList.value.findIndex((h) => h === entry);
+      selectedHistoryIndex.value = idx >= 0 ? idx : null;
+      colorLetters.value = entry.colors;
+      // If the row corresponds to a move by Blue(1)/Red(-1), next to move is the opposite.
+      // For initial position (type 0), use the next entry type if it exists, otherwise leave unchanged
+      if (entry.type === 0) {
+         if (historyList.value.length > 1) {
+            moveIndicator.value = historyList.value[1]!.type;
          }
+      } else {
+         moveIndicator.value = entry.type * -1; // Red to play
       }
-   }
-
-   function computeEndgameForCurrentPage() {
-      if (!gridApi || !player) return;
-      const pageSize = gridApi.paginationGetPageSize();
-      const currentPage = gridApi.paginationGetCurrentPage();
-      const start = currentPage * pageSize;
-      const end = Math.min(start + pageSize, gridApi.getDisplayedRowCount());
-      for (let i = start; i < end; i++) {
-         const rowNode = gridApi.getDisplayedRowAtIndex(i);
-         if (!rowNode) continue;
-         const play = rowNode.data as Play;
-         const [ending_soon, losing] = player.endgameCheck(
-            boardLettersUpperCase.value,
-            play.blue_map,
-            play.red_map,
-            1
-         );
-         play.ending_soon = ending_soon;
-         play.losing = losing;
-      }
-      gridApi.refreshCells({ columns: ['finish'] });
+      updateQueryParams();
+      runSearch();
    }
 
    const autoSizeStrategy: AutoSizeStrategy = { type: 'fitCellContents' };
-
-   function onSearchGridReady(params: GridReadyEvent) {
-      gridApi = params.api;
-      computeEndgameForCurrentPage();
-   }
-
-   function onSearchPaginationChanged() {
-      computeEndgameForCurrentPage();
-   }
 </script>
 
 <template>
@@ -315,14 +288,27 @@
                Edit Board
             </button>
             <div class="board-input" v-show="showBoardEdit">
+               <h4>Note: changing these will clear history</h4>
+               <div class="input-div">
+                  <label for="turn-input">Turn</label>
+                  <select
+                     id="turn-input"
+                     class="input"
+                     v-model.number="moveIndicator"
+                     @change="clearHistorySyncState()"
+                  >
+                     <option :value="1">Blue to play</option>
+                     <option :value="-1">Red to play</option>
+                  </select>
+               </div>
                <div class="input-div">
                   <label for="board-input">Board</label>
                   <input
                      id="board-input"
-                     class="input"
+                     class="input uppercase"
                      type="text"
                      v-model="boardLetters"
-                     @input="syncState()"
+                     @input="clearHistorySyncState()"
                      maxlength="25"
                   />
                </div>
@@ -330,15 +316,16 @@
                   <label for="color-input">Color</label>
                   <input
                      id="color-input"
-                     class="input"
+                     class="input uppercase"
                      type="text"
                      v-model="colorLetters"
-                     @input="syncState()"
+                     @input="clearHistorySyncState()"
                      maxlength="25"
                   />
                </div>
             </div>
          </div>
+         <h3>History</h3>
          <div class="history-grid">
             <ag-grid-vue
                :rowData="historyList"
@@ -348,10 +335,12 @@
                :pagination="true"
                :paginationPageSize="20"
                :rowHeight="boardPreviewCellSize * 5 + 4"
+               @rowClicked="onHistoryRowClicked"
             ></ag-grid-vue>
          </div>
       </div>
       <div class="right-pane">
+         <h3>Search Results</h3>
          <div class="filters-section">
             <div class="filters-header">
                <button
@@ -390,19 +379,16 @@
                </div>
             </div>
          </div>
-         <div class="results-grid">
-            <ag-grid-vue
-               :rowData="searchResults"
-               :columnDefs="searchColDefs"
-               :autoSizeStrategy="autoSizeStrategy"
-               style="height: 100%"
-               :pagination="true"
-               :paginationPageSize="20"
-               :rowHeight="boardPreviewCellSize * 5 + 4"
-               @grid-ready="onSearchGridReady"
-               @pagination-changed="onSearchPaginationChanged"
-            ></ag-grid-vue>
-         </div>
+         <SearchResults
+            :key="searchResultsKey"
+            :boardLetters="boardLettersUpperCase"
+            :player="player"
+            :theme="theme"
+            :searchResults="searchResults"
+            :boardPreviewCellSize="boardPreviewCellSize"
+            :move="moveIndicator"
+            @add-to-history="addPlayToHistory"
+         ></SearchResults>
       </div>
    </div>
 </template>
@@ -424,18 +410,26 @@
    .right-pane {
       width: 55%;
    }
-   .history-grid,
-   .results-grid {
+   .history-grid {
       flex: 1 1 auto;
       min-height: 0;
    }
    .input {
-      width: 230px;
-      margin-left: 5px;
+      width: 270px;
+      margin-left: 2px;
+      box-sizing: border-box;
+      display: inline-block;
+      padding: 2px 2px;
+      height: 25px;
+      font: inherit;
+      border: 1px solid;
+      border-radius: 4px;
+   }
+   .uppercase {
       text-transform: uppercase;
    }
    .input-div {
-      width: 290px;
+      width: 330px;
       display: flex;
       align-items: flex-end;
       justify-content: right;
@@ -485,8 +479,7 @@
       .right-pane {
          width: 100%;
       }
-      .history-grid,
-      .results-grid {
+      .history-grid {
          flex: 0 0 auto;
          height: 420px;
       }

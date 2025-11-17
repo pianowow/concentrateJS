@@ -45,7 +45,7 @@
    .R {
       background-color: v-bind('props.theme.defendedRed');
    }
-   .w {
+   .W {
       background-color: v-bind('props.theme.defaultColor');
    }
 </style>
