@@ -821,4 +821,19 @@ export class Player {
       }
       return [endingsoon, losing];
    }
+
+   playword(allletters: string, word: string) {
+      this.cache[allletters][1].push(word);
+   }
+
+   resetplayed(allletters: string, words: string[]) {
+      this.cache[allletters][1] = words;
+   }
+
+   unplayword(allletters: string, word: string) {
+      const idx = this.cache[allletters][1].indexOf(word);
+      if (idx !== -1) {
+         this.cache[allletters][1].splice(word, 1);
+      }
+   }
 }
