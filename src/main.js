@@ -4,5 +4,7 @@ import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 import App from './App.vue';
+import './styles/global.css'; // global reset
+
 const app = createApp(App);
 app.mount('#app');
