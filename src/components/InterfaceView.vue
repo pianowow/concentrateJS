@@ -6,7 +6,7 @@
    import { LightColorTheme, mapsToColors } from '../ts/board';
    import { roundTo } from '../ts/util';
    import { AgGridVue } from 'ag-grid-vue3';
-   import type { AutoSizeStrategy, RowClickedEvent } from 'ag-grid-community';
+   import type { AutoSizeStrategy, RowClickedEvent, GridApi } from 'ag-grid-community';
 
    const theme = ref(new LightColorTheme());
    class HistoryEntry {
@@ -39,7 +39,7 @@
             lastColor = 'b';
             answer += lastColor;
          } else if ('Ww'.includes(c)) {
-            lastColor = 'W';
+            lastColor = 'w';
             answer += lastColor;
          } else if ('23456789'.includes(c)) {
             for (let n = 2; n < parseInt(c); n++) {
@@ -52,7 +52,7 @@
          }
       }
       if (answer.length < 25) {
-         return answer.padEnd(25, 'W');
+         return answer.padEnd(25, 'w');
       }
       return answer;
    });
@@ -61,7 +61,7 @@
       const colors = boardColorsExpanded.value;
       for (let i = 0; i < 25; i++) {
          const c = colors.charAt(i);
-         if (c === 'W') {
+         if (c === 'w') {
             answer += c;
             continue;
          }
@@ -99,20 +99,67 @@
 
    function readQueryParams() {
       const params = new URLSearchParams(window.location.search);
-      const board = params.get('board');
-      const colors = params.get('colors');
-      const move = params.get('move');
-      if (colors) colorLetters.value = colors.toUpperCase();
-      if (board) boardLetters.value = board.toUpperCase();
-      if (move) moveIndicator.value = Number.parseInt(move);
+      const selected = params.get('selected');
+      const rawHash = window.location.hash?.startsWith('#') ? window.location.hash.slice(1) : '';
+      let index = 0;
+      if (rawHash) {
+         const parts = rawHash.split('.').filter(Boolean);
+         const parsed: HistoryEntry[] = [];
+         for (const part of parts) {
+            const [t, text, colors] = part.split('-', 3);
+            if (!t || !text || !colors) continue;
+            const type = t === 'b' ? 1 : t === 'r' ? -1 : 0;
+            parsed.push(new HistoryEntry(type, text, colors, 0));
+         }
+         if (parsed.length > 0) {
+            historyList.value = parsed;
+            if (parsed[0]!.type === 0 && parsed[0]!.text.length === 25) {
+               boardLetters.value = parsed[0]!.text.toUpperCase();
+            }
+            const selectedNum = selected ? Number.parseInt(selected) : parsed.length - 1;
+            index =
+               !Number.isNaN(selectedNum) && selectedNum >= 0 && selectedNum < parsed.length
+                  ? selectedNum
+                  : parsed.length - 1;
+
+            colorLetters.value = parsed[index]!.colors;
+            const t = parsed[index]!.type;
+            if (t === 0) {
+               //I believe this assumes history has at least two entries?
+               moveIndicator.value = parsed[index + 1]?.type ?? moveIndicator.value;
+            } else {
+               moveIndicator.value = -t;
+            }
+
+            selectedHistoryIndex.value = index;
+            selectHistoryRow(index);
+         }
+         if (player.value) {
+            player.value.possible(boardLettersUpperCase.value);
+            for (const h of historyList.value) {
+               const s: Score = player.value.convertBoardScore(h.colors);
+               h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
+            }
+            const played = historyList.value.slice(1, index + 1).map((a) => a.text);
+            player.value.resetplayed(boardLettersUpperCase.value, played);
+         }
+      }
    }
 
    function updateQueryParams() {
       const params = new URLSearchParams();
-      if (boardLetters.value) params.set('board', boardLettersUpperCase.value);
-      if (colorLetters.value) params.set('colors', colorLettersUpperCase.value);
-      if (moveIndicator.value) params.set('move', moveIndicator.value.toString());
-      const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
+      if (selectedHistoryIndex.value !== null)
+         params.set('selected', selectedHistoryIndex.value.toString());
+      //if (boardLetters.value) params.set('board', boardLettersUpperCase.value);
+      //if (colorLetters.value) params.set('colors', colorLettersUpperCase.value);
+      //if (moveIndicator.value) params.set('move', moveIndicator.value.toString());
+      const historyFragment = historyList.value
+         .map((h) => {
+            const t = h.type === 1 ? 'b' : h.type === -1 ? 'r' : 'i';
+            return `${t}-${h.text}-${h.colors}.`;
+         })
+         .join('');
+      const newUrl = `${window.location.pathname}?${params.toString()}#${historyFragment}`;
       history.replaceState(null, '', newUrl);
    }
 
@@ -128,14 +175,26 @@
       if (!boardLetters.value) {
          boardLetters.value = 'concentrateforletterpress';
          colorLetters.value = 'b5b5bw3rr5r5';
-      }
-      if (needLetters.value || notLetters.value) {
-         showSearchFilters.value = true;
+         clearHistory();
       }
       updateQueryParams();
-      clearHistory();
       runSearch();
    });
+
+   const gridApi = ref<GridApi | null>(null);
+
+   function onGridReady(params: { api: GridApi }) {
+      gridApi.value = params.api;
+   }
+
+   function onFirstDataRendered() {
+      selectHistoryRow(selectedHistoryIndex.value);
+   }
+
+   function selectHistoryRow(idx: number | null) {
+      if (!gridApi.value || idx === null) return;
+      gridApi.value.forEachNode((node) => node.setSelected(node.rowIndex === idx));
+   }
 
    function clearHistory() {
       historyList.value = new Array<HistoryEntry>();
@@ -167,7 +226,7 @@
    }
 
    function runSearch() {
-      if (boardLetters.value.length == 25 && boardColorsDefended.value.split('W').length > 1) {
+      if (boardLetters.value.length == 25 && boardColorsDefended.value.split('w').length > 1) {
          if (!player.value) {
             searchResults.value = [];
             return;
@@ -210,14 +269,19 @@
 
       if (selectedHistoryIndex.value !== null) {
          historyList.value = historyList.value.slice(0, selectedHistoryIndex.value + 1);
+         player.value!.resetplayed(
+            boardLettersUpperCase.value,
+            historyList.value.slice(1, historyList.value.length).map((a) => a.text)
+         );
       }
 
       historyList.value.push(new HistoryEntry(moveIndicator.value, word, colors, score));
+      player.value!.playword(boardLettersUpperCase.value, word);
       selectedHistoryIndex.value = null;
       colorLetters.value = colors;
       moveIndicator.value = -moveIndicator.value;
       searchResults.value = [];
-      searchResultsKey.value++;
+      searchResultsKey.value++; //redraws the searcResults grid completely
       syncState();
    }
 
@@ -250,6 +314,7 @@
       if (!entry) return;
       const idx = historyList.value.findIndex((h) => h === entry);
       selectedHistoryIndex.value = idx >= 0 ? idx : null;
+      selectHistoryRow(selectedHistoryIndex.value);
       colorLetters.value = entry.colors;
       // If the row corresponds to a move by Blue(1)/Red(-1), next to move is the opposite.
       // For initial position (type 0), use the next entry type if it exists, otherwise leave unchanged
@@ -260,6 +325,10 @@
       } else {
          moveIndicator.value = entry.type * -1; // Red to play
       }
+      player.value?.resetplayed(
+         boardLettersUpperCase.value,
+         historyList.value.slice(1, idx + 1).map((a) => a.text)
+      );
       updateQueryParams();
       runSearch();
    }
@@ -335,6 +404,9 @@
                :pagination="true"
                :paginationPageSize="20"
                :rowHeight="boardPreviewCellSize * 5 + 4"
+               :rowSelection="{ mode: 'singleRow', checkboxes: false }"
+               @grid-ready="onGridReady"
+               @first-data-rendered="onFirstDataRendered"
                @rowClicked="onHistoryRowClicked"
             ></ag-grid-vue>
          </div>
@@ -398,6 +470,8 @@
       display: flex;
       height: 100dvh;
       gap: 8px;
+      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+         max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
    }
    .left-pane,
    .right-pane {
@@ -406,6 +480,7 @@
       flex-direction: column;
       align-items: stretch;
       gap: 8px;
+      min-height: 0;
    }
    .right-pane {
       width: 55%;
@@ -413,6 +488,11 @@
    .history-grid {
       flex: 1 1 auto;
       min-height: 0;
+   }
+   h3,
+   h4 {
+      margin: 0;
+      margin-bottom: 6px;
    }
    .input {
       width: 270px;
