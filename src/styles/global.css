@@ -1,0 +1,17 @@
+/* Global resets and layout helpers */
+html,
+body {
+   height: 100%;
+   margin: 0; /* remove default 8px body margin that causes scrollbars */
+}
+
+*,
+*::before,
+*::after {
+   box-sizing: border-box;
+}
+
+/* Ensure the app root can stretch */
+#app {
+   min-height: 100%;
+}
