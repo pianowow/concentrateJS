@@ -285,6 +285,24 @@
       syncState();
    }
 
+   // MoveCellRenderer: renders a small themed box indicating who played the move (blue/red).
+   const MoveCellRenderer = defineComponent({
+      name: 'MoveCellRenderer',
+      props: { params: { type: Object, required: true } },
+      render() {
+         const type: number = this.params?.data?.type ?? 0;
+         const th = theme.value;
+         // Best-effort theme color extraction with sensible fallbacks
+         const blue = th?.defendedBlue;
+         const red = th?.defendedRed;
+         const neutral = th?.defaultColor;
+         const bg = type === 1 ? blue : type === -1 ? red : neutral;
+         return h('div', { class: 'move-cell-wrapper' }, [
+            h('div', { class: 'move-cell', style: { backgroundColor: bg } }),
+         ]);
+      },
+   });
+
    const HistoryBoardCellRenderer = defineComponent({
       name: 'BoardCellRenderer',
       props: { params: { type: Object, required: true } },
@@ -301,6 +319,13 @@
    });
 
    const historyColDefs = ref([
+      {
+         headerName: 'Move',
+         field: 'type',
+         minWidth: 70,
+         maxWidth: 90,
+         cellRenderer: markRaw(MoveCellRenderer),
+      },
       {
          headerName: 'Word',
          field: 'text',
@@ -523,6 +548,19 @@
    }
    .page-input {
       width: 50px;
+   }
+   .move-cell-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100%;
+   }
+   .move-cell {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.25);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
    }
    .filters-section {
       display: flex;
