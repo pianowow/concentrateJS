@@ -18,7 +18,6 @@ beforeAll(async () => {
       const [ending, losing] = player.endgameCheck(letters, play.blue_map, play.red_map, 1);
       words[play.word] = {
          word: play.word,
-         group_size: play.group_size,
          score: play.score,
          blue_map: play.blue_map,
          red_map: play.red_map,
