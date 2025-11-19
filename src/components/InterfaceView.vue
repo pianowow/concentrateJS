@@ -1,12 +1,10 @@
 <script setup lang="ts">
-   import { ref, type Ref, onMounted, computed, h, markRaw, defineComponent } from 'vue';
+   import { ref, type Ref, onMounted, computed, watch } from 'vue';
    import BoardGrid from './BoardGrid.vue';
    import SearchResults from './SearchResults.vue';
    import { Player, Play, Score } from '../ts/player';
    import { LightColorTheme, mapsToColors } from '../ts/board';
    import { roundTo } from '../ts/util';
-   import { AgGridVue } from 'ag-grid-vue3';
-   import type { AutoSizeStrategy, RowClickedEvent, GridApi } from 'ag-grid-community';
 
    const theme = ref(new LightColorTheme());
    class HistoryEntry {
@@ -92,6 +90,15 @@
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
    const notLettersUpperCase = computed(() => notLetters.value.toUpperCase());
+   const wordFilter = ref('');
+   const wordFilterDebounced = ref('');
+   let wordFilterDebounceHandle: number | undefined;
+   watch(wordFilter, (val) => {
+      if (wordFilterDebounceHandle) clearTimeout(wordFilterDebounceHandle);
+      wordFilterDebounceHandle = window.setTimeout(() => {
+         wordFilterDebounced.value = val;
+      }, DEBOUNCE_MS);
+   });
    const searchResultsKey = ref(0);
    const searchResults: Ref<Play[]> = ref(new Array<Play>());
    let player: Ref<Player | null> = ref(null);
@@ -132,12 +139,12 @@
             }
 
             selectedHistoryIndex.value = index;
-            selectHistoryRow(index);
+            historyCurrentPage.value = Math.floor(index / historyPageSize.value);
          }
          if (player.value) {
             player.value.possible(boardLettersUpperCase.value);
             for (const h of historyList.value) {
-               const s: Score = player.value.convertBoardScore(h.colors);
+               const s: Score = player.value.convertBoardScore(h.colors.toUpperCase());
                h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
             }
             const played = historyList.value.slice(1, index + 1).map((a) => a.text);
@@ -181,20 +188,29 @@
       runSearch();
    });
 
-   const gridApi = ref<GridApi | null>(null);
-
-   function onGridReady(params: { api: GridApi }) {
-      gridApi.value = params.api;
+   const historyPageSize = ref(20);
+   const historyCurrentPage = ref(0);
+   const historyTotalPages = computed(() =>
+      Math.max(1, Math.ceil(historyList.value.length / historyPageSize.value))
+   );
+   const historyStartIndex = computed(() => historyCurrentPage.value * historyPageSize.value);
+   const pagedHistory = computed(() =>
+      historyList.value.slice(
+         historyStartIndex.value,
+         historyStartIndex.value + historyPageSize.value
+      )
+   );
+   const historyRowHeightPx = computed(() => boardPreviewCellSize * 5 + 4);
+   function goToHistoryPage(p: number) {
+      historyCurrentPage.value = Math.min(Math.max(p, 0), historyTotalPages.value - 1);
    }
-
-   function onFirstDataRendered() {
-      selectHistoryRow(selectedHistoryIndex.value);
-   }
-
-   function selectHistoryRow(idx: number | null) {
-      if (!gridApi.value || idx === null) return;
-      gridApi.value.forEachNode((node) => node.setSelected(node.rowIndex === idx));
-   }
+   watch([selectedHistoryIndex, historyPageSize], () => {
+      if (selectedHistoryIndex.value === null) {
+         historyCurrentPage.value = 0;
+      } else {
+         historyCurrentPage.value = Math.floor(selectedHistoryIndex.value / historyPageSize.value);
+      }
+   });
 
    function clearHistory() {
       historyList.value = new Array<HistoryEntry>();
@@ -276,6 +292,7 @@
       }
 
       historyList.value.push(new HistoryEntry(moveIndicator.value, word, colors, score));
+      historyCurrentPage.value = Math.floor((historyList.value.length - 1) / historyPageSize.value);
       player.value!.playword(boardLettersUpperCase.value, word);
       selectedHistoryIndex.value = null;
       colorLetters.value = colors;
@@ -285,70 +302,16 @@
       syncState();
    }
 
-   // MoveCellRenderer: renders a small themed box indicating who played the move (blue/red).
-   const MoveCellRenderer = defineComponent({
-      name: 'MoveCellRenderer',
-      props: { params: { type: Object, required: true } },
-      render() {
-         const type: number = this.params?.data?.type ?? 0;
-         const th = theme.value;
-         // Best-effort theme color extraction with sensible fallbacks
-         const blue = th?.defendedBlue;
-         const red = th?.defendedRed;
-         const neutral = th?.defaultColor;
-         const bg = type === 1 ? blue : type === -1 ? red : neutral;
-         return h('div', { class: 'move-cell-wrapper' }, [
-            h('div', { class: 'move-cell', style: { backgroundColor: bg } }),
-         ]);
-      },
-   });
-
-   const HistoryBoardCellRenderer = defineComponent({
-      name: 'BoardCellRenderer',
-      props: { params: { type: Object, required: true } },
-      render() {
-         const p = this.params;
-         const colors = p.data.colors;
-         return h(BoardGrid, {
-            letters: boardLettersUpperCase.value,
-            colors,
-            theme: theme.value,
-            size: boardPreviewCellSize,
-         });
-      },
-   });
-
-   const historyColDefs = ref([
-      {
-         headerName: 'Move',
-         field: 'type',
-         minWidth: 70,
-         maxWidth: 90,
-         cellRenderer: markRaw(MoveCellRenderer),
-      },
-      {
-         headerName: 'Word',
-         field: 'text',
-      },
-      { headerName: 'Score', field: 'score' },
-      { headerName: 'Board', cellRenderer: markRaw(HistoryBoardCellRenderer) },
-   ]);
-
-   function onHistoryRowClicked(event: RowClickedEvent<HistoryEntry>) {
-      const entry = event.data;
-      if (!entry) return;
-      const idx = historyList.value.findIndex((h) => h === entry);
+   function onHistoryRowClicked(entry: HistoryEntry, idx: number) {
       selectedHistoryIndex.value = idx >= 0 ? idx : null;
-      selectHistoryRow(selectedHistoryIndex.value);
       colorLetters.value = entry.colors;
       // If the row corresponds to a move by Blue(1)/Red(-1), next to move is the opposite.
-      // For initial position (type 0), use the next entry type if it exists, otherwise leave unchanged
       if (entry.type === 0) {
          if (historyList.value.length > 1) {
             moveIndicator.value = historyList.value[1]!.type;
          }
       } else {
-         moveIndicator.value = entry.type * -1; // Red to play
+         moveIndicator.value = entry.type * -1;
       }
       player.value?.resetplayed(
          boardLettersUpperCase.value,
@@ -357,8 +320,6 @@
       updateQueryParams();
       runSearch();
    }
-
-   const autoSizeStrategy: AutoSizeStrategy = { type: 'fitCellContents' };
 </script>
 
 <template>
@@ -421,19 +382,104 @@
          </div>
          <h3>History</h3>
          <div class="history-grid">
-            <ag-grid-vue
-               :rowData="historyList"
-               :columnDefs="historyColDefs"
-               :autoSizeStrategy="autoSizeStrategy"
-               style="height: 100%"
-               :pagination="true"
-               :paginationPageSize="20"
-               :rowHeight="boardPreviewCellSize * 5 + 4"
-               :rowSelection="{ mode: 'singleRow', checkboxes: false }"
-               @grid-ready="onGridReady"
-               @first-data-rendered="onFirstDataRendered"
-               @rowClicked="onHistoryRowClicked"
-            ></ag-grid-vue>
+            <div class="table-container">
+               <table class="results-table">
+                  <thead>
+                     <tr>
+                        <th style="text-align: left; width: 80px">Move</th>
+                        <th style="text-align: left">Word</th>
+                        <th style="text-align: left; width: 100px">Score</th>
+                        <th style="text-align: left; width: 80px">Board</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                     <tr
+                        v-for="(entry, i) in pagedHistory"
+                        :key="historyStartIndex + i + '-' + entry.text"
+                        :class="{ selected: historyStartIndex + i === selectedHistoryIndex }"
+                        :style="{ height: historyRowHeightPx + 'px', cursor: 'pointer' }"
+                        @click="onHistoryRowClicked(entry, historyStartIndex + i)"
+                     >
+                        <td>
+                           <div class="move-cell-wrapper">
+                              <div
+                                 class="move-cell"
+                                 :style="{
+                                    backgroundColor:
+                                       entry.type === 1
+                                          ? theme.defendedBlue
+                                          : entry.type === -1
+                                            ? theme.defendedRed
+                                            : theme.defaultColor,
+                                 }"
+                              ></div>
+                           </div>
+                        </td>
+                        <td>{{ entry.text }}</td>
+                        <td>{{ entry.score }}</td>
+                        <td>
+                           <BoardGrid
+                              :letters="boardLettersUpperCase"
+                              :colors="entry.colors"
+                              :theme="theme"
+                              :size="boardPreviewCellSize"
+                           />
+                        </td>
+                     </tr>
+                  </tbody>
+               </table>
+            </div>
+            <div class="pager">
+               <div class="pager-left">
+                  <label
+                     >Page Size:
+                     <select v-model.number="historyPageSize" class="pager-select">
+                        <option :value="20">20</option>
+                        <option :value="50">50</option>
+                        <option :value="100">100</option>
+                     </select>
+                  </label>
+               </div>
+               <div class="pager-right">
+                  <button
+                     type="button"
+                     aria-label="First Page"
+                     title="First Page"
+                     @click="goToHistoryPage(0)"
+                     :disabled="historyCurrentPage === 0"
+                  >
+                     |&lt;
+                  </button>
+                  <button
+                     type="button"
+                     aria-label="Previous Page"
+                     title="Previous Page"
+                     @click="goToHistoryPage(historyCurrentPage - 1)"
+                     :disabled="historyCurrentPage === 0"
+                  >
+                     &lt;
+                  </button>
+                  <span>Page {{ historyCurrentPage + 1 }} / {{ historyTotalPages }}</span>
+                  <button
+                     type="button"
+                     aria-label="Next Page"
+                     title="Next Page"
+                     @click="goToHistoryPage(historyCurrentPage + 1)"
+                     :disabled="historyCurrentPage >= historyTotalPages - 1"
+                  >
+                     &gt;
+                  </button>
+                  <button
+                     type="button"
+                     aria-label="Last Page"
+                     title="Last Page"
+                     @click="goToHistoryPage(historyTotalPages - 1)"
+                     :disabled="historyCurrentPage >= historyTotalPages - 1"
+                  >
+                     &gt;|
+                  </button>
+               </div>
+            </div>
          </div>
       </div>
       <div class="right-pane">
@@ -474,6 +520,16 @@
                      maxlength="25"
                   />
                </div>
+               <div class="input-div">
+                  <label for="word-filter-input">Word</label>
+                  <input
+                     id="word-filter-input"
+                     class="input"
+                     type="text"
+                     v-model="wordFilter"
+                     maxlength="25"
+                  />
+               </div>
             </div>
          </div>
          <SearchResults
@@ -484,6 +540,7 @@
             :searchResults="searchResults"
             :boardPreviewCellSize="boardPreviewCellSize"
             :move="moveIndicator"
+            :wordFilter="wordFilterDebounced"
             @add-to-history="addPlayToHistory"
          ></SearchResults>
       </div>
@@ -585,6 +642,20 @@
    }
    .filters-toggle[aria-expanded='true']::before {
       transform: rotate(90deg);
+   }
+   .history-grid {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+   }
+   .history-grid .table-container {
+      flex: 1 1 auto;
+      min-height: 0;
+   }
+   .results-table tbody tr.selected {
+      background: #e3f1ff;
    }
    @media (max-width: 900px) {
       .layout {
