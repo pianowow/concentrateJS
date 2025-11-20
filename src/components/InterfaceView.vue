@@ -99,7 +99,6 @@
          wordFilterDebounced.value = val;
       }, DEBOUNCE_MS);
    });
-   const searchResultsKey = ref(0);
    const searchResults: Ref<Play[]> = shallowRef<Play[]>([]);
    let player: Ref<Player | null> = shallowRef<Player | null>(null);
    const boardPreviewCellSize = 9;
@@ -297,7 +296,7 @@
       colorLetters.value = colors;
       moveIndicator.value = -moveIndicator.value;
       searchResults.value = [];
-      searchResultsKey.value++; //redraws the searcResults grid completely
+      wordFilter.value = '';
       syncState();
    }
 
@@ -532,7 +531,6 @@
             </div>
          </div>
          <SearchResults
-            :key="searchResultsKey"
             :boardLetters="boardLettersUpperCase"
             :player="player"
             :theme="theme"
