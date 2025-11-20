@@ -74,6 +74,9 @@ export class Player {
    cache;
    hashtable;
    wordList: string[];
+
+   private readonly BOARD_MASK: number = (1 << 25) - 1;
+
    constructor(
       difficulty = new Difficulty('A', 5, 25, 'S'),
       weights = new Weights(3.1, 1.28, 2.29, 7.78),
@@ -318,23 +321,20 @@ export class Player {
 
    // TODO: move to board.js
    centroid(map: number) {
-      let cnt = 0;
-      let ysum = 0;
-      let xsum = 0;
-      for (let i = 0; i < 25; i++) {
-         if (((1 << i) & map) > 0) {
-            const y = Math.floor(i / 5);
-            const x = i % 5;
-            ysum += y;
-            xsum += x;
-            cnt += 1;
-         }
+      map &= this.BOARD_MASK;
+      if (map === 0) return new Vector(2, 2);
+      let cnt = 0,
+         ysum = 0,
+         xsum = 0;
+      while (map) {
+         const lsb = map & -map;
+         const i = 31 - Math.clz32(lsb);
+         ysum += i % 5;
+         xsum += (i / 5) | 0; //fast floor
+         cnt++;
+         map ^= lsb;
       }
-      if (cnt > 0) {
-         return new Vector(xsum / cnt, ysum / cnt);
-      } else {
-         return new Vector(2, 2);
-      }
+      return new Vector(xsum / cnt, ysum / cnt);
    }
 
    // TODO: move to util.js
@@ -436,34 +436,48 @@ export class Player {
       return wordGroups;
    }
 
+   /**
+    * Returns number of set bits of a number
+    * ex.: 5 is 101 in binary, so it would return 2 for the two set 1s.
+    * Kerninghan's algorithm
+    */
+   private bitCount(n: number): number {
+      let c = 0;
+      n |= 0; //ensure 32-bit
+      while (n) {
+         n &= n - 1;
+         c++;
+      }
+      return c;
+   }
+
    evaluatePos(allLetters: string, s: Score) {
       // returns a number indicating who is winning, and by how much.  positive, blue; negative, red.
       // TODO: the Python version memoized this method with a hash table
-      const ending = (s.blue | s.red).toString(2).split('1').length == 26;
+      const ending = this.bitCount((s.blue | s.red) & this.BOARD_MASK) == 25;
       let total = 0;
       if (!ending) {
          // TODO: refactor to avoid magic numbers 2 and 3
          const d = this.cache[allLetters][2]; // defended
          const u = this.cache[allLetters][3]; // undefended
          const n = this.neighbors;
-         let blueScore = 0;
-         let redScore = 0;
-         for (let i = 0; i < 25; i++) {
-            if (s.blue & (1 << i)) {
-               if ((s.blue & n[i]!) == n[i]) {
-                  blueScore += d[i];
-               } else {
-                  blueScore += u[i];
-               }
-            }
-            if (s.red & (1 << i)) {
-               if ((s.red & n[i]!) == n[i]) {
-                  redScore += d[i];
-               } else {
-                  redScore += u[i];
-               }
-            }
+         let blueScore = 0,
+            redScore = 0;
+         let sm = s.blue & this.BOARD_MASK;
+         while (sm) {
+            const lsb = sm & -sm;
+            const i = 31 - Math.clz32(lsb);
+            blueScore += (s.blue & n[i]!) === n[i] ? d[i]! : u[i]!;
+            sm ^= lsb;
          }
+         sm = s.red & this.BOARD_MASK;
+         while (sm) {
+            const lsb = sm & -sm;
+            const i = 31 - Math.clz32(lsb);
+            redScore += (s.red & n[i]!) === n[i] ? d[i]! : u[i]!;
+            sm ^= lsb;
+         }
+
          // bonus for being away from the zero letters
          const blueCenter = this.centroid(s.blue);
          const redCenter = this.centroid(s.red);
@@ -473,7 +487,7 @@ export class Player {
          total = blueScore - redScore + this.weights.mw * (blueDiff - redDiff);
       } else {
          total =
-            (s.blue.toString(2).split('1').length - 1 - (s.red.toString(2).split('1').length - 1)) *
+            (this.bitCount(s.blue & this.BOARD_MASK) - this.bitCount(s.red & this.BOARD_MASK)) *
             1000;
       }
       return total;
