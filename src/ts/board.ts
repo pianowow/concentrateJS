@@ -16,10 +16,10 @@ export class LightColorTheme {
 // neighbors[i] represents the bitmap of all the neighbors of i and itself.  Corner cell has 0th index.
 // ex: cell 7 has neighbors 7,2,12,6,8.  Those values bitmapped, i.e., 2^7 + 2^2 + 2^12 + 2^6 + 2^8 add to 4548.
 // ex: cell 0 has neighbors 0, 1 and 5.  So 2^0 + 2^1 + 2^5 = 35
-export const neighbors = [
+export const neighbors: Uint32Array = new Uint32Array([
    35, 71, 142, 284, 536, 1121, 2274, 4548, 9096, 17168, 35872, 72768, 145536, 291072, 549376,
    1147904, 2328576, 4657152, 9314304, 17580032, 3178496, 7405568, 14811136, 29622272, 25690112,
-];
+]);
 
 /**
  * Returns a string representing the board colors given bitmaps of blue and red positions

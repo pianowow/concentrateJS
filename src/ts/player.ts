@@ -70,10 +70,13 @@ export class Player {
    difficulty: Difficulty;
    weights: Weights;
    name: string;
-   neighbors: number[];
+   neighbors: Uint32Array;
    cache;
    hashtable;
    wordList: string[];
+
+   private readonly BOARD_MASK: number = (1 << 25) - 1;
+
    constructor(
       difficulty = new Difficulty('A', 5, 25, 'S'),
       weights = new Weights(3.1, 1.28, 2.29, 7.78),
@@ -100,85 +103,99 @@ export class Player {
          );
          //so we don't suggest words that have already been played
       }
-      const found = [];
+      const A = 65; // 'A'
+      const boardCnt = new Uint8Array(26);
+      for (let i = 0; i < 25; i++) {
+         const idx = letters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) boardCnt[idx]! += 1;
+      }
+
+      const found: string[] = [];
       const wordsizelimit = this.difficulty.wordsizelimit;
-      let good = true;
-      for (const candidate of this.wordList.filter((word) => word.length < wordsizelimit)) {
-         good = true;
-         for (const letter of candidate) {
-            if (letters.split(letter).length < candidate.split(letter).length) {
-               good = false;
+
+      const wCnt = new Uint8Array(26);
+      const touched: number[] = [];
+
+      for (const candidate of this.wordList) {
+         if (candidate.length >= wordsizelimit) continue;
+         for (let i = 0; i < candidate.length; i++) {
+            const idx = candidate.charCodeAt(i) - A;
+            if (idx < 0 || idx >= 26) continue;
+            if (wCnt[idx] === 0) touched.push(idx);
+            wCnt[idx]! += 1;
+         }
+         let ok = true;
+         for (let t = 0; t < touched.length; t++) {
+            const idx = touched[t]!;
+            if (wCnt[idx]! > boardCnt[idx]!) {
+               ok = false;
                break;
             }
          }
-         if (good) {
-            found.push(candidate);
-         }
+         if (ok) found.push(candidate);
+         for (let t = 0; t < touched.length; t++) wCnt[touched[t]!] = 0;
+         touched.length = 0;
       }
       // TODO consider moving calculation of scores and popularity to another method
-      const letterdict = Object();
+      const letterCnt = new Uint16Array(26);
       for (const word of found) {
-         for (const letter of word) {
-            if (letterdict[letter]) {
-               letterdict[letter] += 1;
-            } else {
-               letterdict[letter] = 1;
-            }
+         for (let i = 0; i < word.length; i++) {
+            const idx = word.charCodeAt(i) - A;
+            if (idx >= 0 && idx < 26) letterCnt[idx]! += 1;
          }
       }
-      const letterlist = [];
-      const cnt = [];
-      for (const letter in letterdict) {
-         letterlist.push(letter);
-         cnt.push(letterdict[letter]);
+      let maxcnt = 0;
+      for (let i = 0; i < 26; i++) {
+         if (letterCnt[i]! > maxcnt) maxcnt = letterCnt[i]!;
       }
-      const maxcnt = Math.max(...cnt);
-      for (const i in cnt) {
-         cnt[i] = cnt[i] / maxcnt; // makes all between 0 and 1
-      }
-      for (const [i, letter] of letterlist.entries()) {
-         letterdict[letter] = roundTo(cnt[i], 2);
-      }
-      for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-         if (!letterdict[letter]) {
-            letterdict[letter] = 0;
+      const letterScore = new Float32Array(26); //normalized [0..1]
+      if (maxcnt > 0) {
+         for (let i = 0; i < 26; i++) {
+            letterScore[i] = roundTo(letterCnt[i]! / maxcnt, 2);
          }
       }
       // calculate defended scores
-      const d = Array(25).fill(0);
+      const d = new Float32Array(25);
       for (let i = 0; i < 25; i++) {
-         d[i] = roundTo(
-            this.weights.dw + this.weights.dpw * (1 - letterdict[letters.charAt(i)]),
-            2
-         );
+         const idx = letters.charCodeAt(i) - A;
+         const pop = idx >= 0 && idx < 26 ? letterScore[idx]! : 0;
+         d[i] = roundTo(this.weights.dw + this.weights.dpw * (1 - pop), 2);
       }
       // calculate undefended scores
-      const u = Array(25).fill(0);
+      const u = new Float32Array(25);
       for (let row = 0; row < 5; row++) {
          for (let col = 0; col < 5; col++) {
-            const neighborList = [];
+            const i = row * 5 + col;
+            const idx = letters.charCodeAt(i);
+            const curPop = idx >= 0 && idx < 26 ? letterScore[idx]! : 0;
+            let sum = 0;
+            let n = 0;
             if (row - 1 >= 0) {
-               neighborList.push(letterdict[letters.charAt((row - 1) * 5 + col)]);
+               const j = (row - 1) * 5 + col;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
             if (col + 1 < 5) {
-               neighborList.push(letterdict[letters.charAt(row * 5 + col + 1)]);
+               const j = row * 5 + col + 1;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
             if (row + 1 < 5) {
-               neighborList.push(letterdict[letters.charAt((row + 1) * 5 + col)]);
+               const j = (row + 1) * 5 + col;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
             if (col - 1 >= 0) {
-               neighborList.push(letterdict[letters.charAt(row * 5 + col - 1)]);
+               const j = row * 5 + col - 1;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
-            const size = neighborList.length;
-            for (let x = 0; x < size; x++) {
-               neighborList.push(1 - letterdict[letters.charAt(row * 5 + col)]);
-            }
-            u[row * 5 + col] = roundTo(
-               this.weights.uw +
-                  (this.weights.upw * neighborList.reduce((prev, curr) => prev + curr)) /
-                     neighborList.length,
-               2
-            );
+            const mean = n ? (sum + n * (1 - curPop)) / (2 * n) : 0;
+            u[i] = roundTo(this.weights.uw + this.weights.upw * mean, 2);
          }
       }
       this.cache[letters] = [found, [], d, u]; // valid words, played words, defended scores, undefended scores
@@ -191,58 +208,86 @@ export class Player {
       assert(notLetters == notLetters.toUpperCase());
       assert(anyLetters == anyLetters.toUpperCase());
       const possibleWords = this.possible(allLetters);
-      let needLetterWordList = [];
-      if (needLetters != '') {
-         //find words that use all needLetters
-         for (const word of possibleWords) {
-            let good = true;
-            for (const letter of needLetters) {
-               if (word.split(letter).length < needLetters.split(letter).length) {
-                  good = false;
+      // Fast-path: no filters => return as-is
+      if (!needLetters && !notLetters && !anyLetters) return possibleWords;
+
+      const A = 65; // 'A'
+      // Board letter availability counts
+      const boardCnt = new Uint8Array(26);
+      for (let i = 0; i < 25; i++) {
+         const idx = allLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) boardCnt[idx]! += 1;
+      }
+      // Need / Not counts and index lists (to iterate only relevant letters)
+      const needCnt = new Uint8Array(26);
+      const needIdx: number[] = [];
+      for (let i = 0; i < needLetters.length; i++) {
+         const idx = needLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) {
+            if (needCnt[idx] === 0) needIdx.push(idx);
+            needCnt[idx]! += 1;
+         }
+      }
+      const notCnt = new Uint8Array(26);
+      const notIdx: number[] = [];
+      for (let i = 0; i < notLetters.length; i++) {
+         const idx = notLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) {
+            if (notCnt[idx] === 0) notIdx.push(idx);
+            notCnt[idx]! += 1;
+         }
+      }
+      // Any-letter presence
+      const anyPres = new Uint8Array(26);
+      const anyHas = anyLetters.length > 0;
+      for (let i = 0; i < anyLetters.length; i++) {
+         const idx = anyLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) anyPres[idx] = 1;
+      }
+      // Per-word counters only for relevant letters; reset via touched list
+      const wCnt = new Uint8Array(26);
+      const touched: number[] = [];
+
+      const out: string[] = [];
+      for (const word of possibleWords) {
+         let anyMatch = !anyHas;
+         // Count only letters we care about
+         for (let i = 0; i < word.length; i++) {
+            const idx = word.charCodeAt(i) - A;
+            if (idx < 0 || idx >= 26) continue;
+            if (needCnt[idx]! | notCnt[idx]! | anyPres[idx]!) {
+               if (wCnt[idx] === 0) touched.push(idx);
+               wCnt[idx]! += 1;
+               if (!anyMatch && anyPres[idx]) anyMatch = true;
+            }
+         }
+         // Check need: word must have at least the required counts
+         let ok = true;
+         for (let j = 0; j < needIdx.length; j++) {
+            const idx = needIdx[j]!;
+            if (wCnt[idx]! < needCnt[idx]!) {
+               ok = false;
+               break;
+            }
+         }
+         // Check not: cannot exceed available after reserving notCnt
+         if (ok && notIdx.length) {
+            for (let j = 0; j < notIdx.length; j++) {
+               const idx = notIdx[j]!;
+               const avail = boardCnt[idx]! - notCnt[idx]!;
+               if (wCnt[idx]! > avail) {
+                  ok = false;
                   break;
                }
             }
-            if (good) needLetterWordList.push(word);
          }
-      } else {
-         needLetterWordList = possibleWords;
+         if (ok && anyHas && !anyMatch) ok = false;
+         if (ok) out.push(word);
+         // Reset touched counters
+         for (let t = 0; t < touched.length; t++) wCnt[touched[t]!] = 0;
+         touched.length = 0;
       }
-      let notLetterWordList = [];
-      if (notLetters != '') {
-         //remove words that depend on notLetters
-         for (const word of needLetterWordList) {
-            let good = true;
-            for (const letter of notLetters) {
-               if (
-                  word.split(letter).length - 1 >
-                  allLetters.split(letter).length - notLetters.split(letter).length
-               ) {
-                  good = false;
-                  break;
-               }
-            }
-            if (good) notLetterWordList.push(word);
-         }
-      } else {
-         notLetterWordList = needLetterWordList;
-      }
-      let anyLetterWordList = [];
-      if (anyLetters != '') {
-         //remove words that don't use one of the anyLetters
-         for (const word of notLetterWordList) {
-            let good = false;
-            for (const letter of anyLetters) {
-               if (word.includes(letter)) {
-                  good = true;
-                  break;
-               }
-            }
-            if (good) anyLetterWordList.push(word);
-         }
-      } else {
-         anyLetterWordList = notLetterWordList;
-      }
-      return anyLetterWordList;
+      return out;
    }
 
    // TODO: move to board.js
@@ -318,23 +363,20 @@ export class Player {
 
    // TODO: move to board.js
    centroid(map: number) {
-      let cnt = 0;
-      let ysum = 0;
-      let xsum = 0;
-      for (let i = 0; i < 25; i++) {
-         if (((1 << i) & map) > 0) {
-            const y = Math.floor(i / 5);
-            const x = i % 5;
-            ysum += y;
-            xsum += x;
-            cnt += 1;
-         }
+      map &= this.BOARD_MASK;
+      if (map === 0) return new Vector(2, 2);
+      let cnt = 0,
+         ysum = 0,
+         xsum = 0;
+      while (map) {
+         const lsb = map & -map;
+         const i = 31 - Math.clz32(lsb);
+         ysum += i % 5;
+         xsum += (i / 5) | 0; //fast floor
+         cnt++;
+         map ^= lsb;
       }
-      if (cnt > 0) {
-         return new Vector(xsum / cnt, ysum / cnt);
-      } else {
-         return new Vector(2, 2);
-      }
+      return new Vector(xsum / cnt, ysum / cnt);
    }
 
    // TODO: move to util.js
@@ -436,34 +478,48 @@ export class Player {
       return wordGroups;
    }
 
+   /**
+    * Returns number of set bits of a number
+    * ex.: 5 is 101 in binary, so it would return 2 for the two set 1s.
+    * Kerninghan's algorithm
+    */
+   private bitCount(n: number): number {
+      let c = 0;
+      n |= 0; //ensure 32-bit
+      while (n) {
+         n &= n - 1;
+         c++;
+      }
+      return c;
+   }
+
    evaluatePos(allLetters: string, s: Score) {
       // returns a number indicating who is winning, and by how much.  positive, blue; negative, red.
       // TODO: the Python version memoized this method with a hash table
-      const ending = (s.blue | s.red).toString(2).split('1').length == 26;
+      const ending = this.bitCount((s.blue | s.red) & this.BOARD_MASK) == 25;
       let total = 0;
       if (!ending) {
          // TODO: refactor to avoid magic numbers 2 and 3
          const d = this.cache[allLetters][2]; // defended
          const u = this.cache[allLetters][3]; // undefended
          const n = this.neighbors;
-         let blueScore = 0;
-         let redScore = 0;
-         for (let i = 0; i < 25; i++) {
-            if (s.blue & (1 << i)) {
-               if ((s.blue & n[i]!) == n[i]) {
-                  blueScore += d[i];
-               } else {
-                  blueScore += u[i];
-               }
-            }
-            if (s.red & (1 << i)) {
-               if ((s.red & n[i]!) == n[i]) {
-                  redScore += d[i];
-               } else {
-                  redScore += u[i];
-               }
-            }
+         let blueScore = 0,
+            redScore = 0;
+         let sm = s.blue & this.BOARD_MASK;
+         while (sm) {
+            const lsb = sm & -sm;
+            const i = 31 - Math.clz32(lsb);
+            blueScore += (s.blue & n[i]!) === n[i] ? d[i]! : u[i]!;
+            sm ^= lsb;
          }
+         sm = s.red & this.BOARD_MASK;
+         while (sm) {
+            const lsb = sm & -sm;
+            const i = 31 - Math.clz32(lsb);
+            redScore += (s.red & n[i]!) === n[i] ? d[i]! : u[i]!;
+            sm ^= lsb;
+         }
+
          // bonus for being away from the zero letters
          const blueCenter = this.centroid(s.blue);
          const redCenter = this.centroid(s.red);
@@ -473,7 +529,7 @@ export class Player {
          total = blueScore - redScore + this.weights.mw * (blueDiff - redDiff);
       } else {
          total =
-            (s.blue.toString(2).split('1').length - 1 - (s.red.toString(2).split('1').length - 1)) *
+            (this.bitCount(s.blue & this.BOARD_MASK) - this.bitCount(s.red & this.BOARD_MASK)) *
             1000;
       }
       return total;
@@ -494,81 +550,89 @@ export class Player {
       avoidIndexes: number[] = [],
       move = 1
    ): void {
-      // function to evaluate all placements of a word
-      // for each unique letter, get a list of lists for the indexes it can be played in
+      // Evaluate all placements of a word
+      // 1) Count occurrences per distinct letter in the word.
       const wordhist: Record<string, number> = {};
       for (const letter of word) {
-         wordhist[letter] = word.split(letter).length - 1;
+         wordhist[letter] = (wordhist[letter] ?? 0) + 1;
       }
-      const letteroptions: number[][][] = [];
+      // 2) Build positions-by-letter once by scanning the board.
+      const posByLetter: Record<string, number[]> = Object.create(null);
+      for (let i = 0; i < allLetters.length; i++) {
+         const ch = allLetters.charAt(i);
+         (posByLetter[ch] ??= []).push(i);
+      }
+      // 3) Avoided positions bitmask.
+      let avoidMask = 0;
+      for (const i of avoidIndexes) avoidMask |= 1 << i;
+      // 4) For each distinct letter, precompute the bitmask combos of its positions choose count.
+      const letterMasksPerGroup: number[][] = [];
       for (const letter in wordhist) {
-         const letterplaces: number[] = [];
-         for (let i = 0; i < allLetters.length; i++) {
-            const letter2 = allLetters.charAt(i);
-            if (letter == letter2 && avoidIndexes.indexOf(i) < 0) {
-               //letter matches and we weren't told to avoid this spot
-               letterplaces.push(i);
-            }
+         const count = wordhist[letter]!;
+         const allPos = posByLetter[letter] ?? [];
+         // Filter out avoided positions
+         const avail: number[] = [];
+         for (let k = 0; k < allPos.length; k++) {
+            const idx = allPos[k]!;
+            if ((avoidMask & (1 << idx)) === 0) avail.push(idx);
          }
-         const letterCombos: number[][] = [];
-         for (const combo of this.combinations(letterplaces, wordhist[letter]!)) {
-            letterCombos.push(combo);
-         }
-         letteroptions.push(letterCombos);
-      }
-      // create a new list with enough elements to hold all the options above (multiply the length of all the lists)
-      let lenwordplays = 1;
-      for (const lst of letteroptions) {
-         lenwordplays *= lst.length;
-      }
-      const wordplays: number[][] = Array.from({ length: lenwordplays }, () => [] as number[]);
-      // write the options to wordPlays to get all the ways to play this word
-      // [[[1,],[2]],[[3,4],[3,5],[4,5]]] becomes [[1,3,4],[1,3,5],[1,4,5],[2,3,4],[2,3,5],[2,4,5]]
-      let divisor = 1;
-      for (const letterplays of letteroptions) {
-         divisor *= letterplays.length;
-         const cutoff = Math.floor(lenwordplays / divisor);
-         if (letterplays.length > 1) {
-            for (let playindex = 0; playindex < lenwordplays; playindex++) {
-               const lookup = Math.floor(playindex / cutoff) % letterplays.length;
-               for (const index of letterplays[lookup]!) {
-                  wordplays[playindex]!.push(index);
+         // Generate combinations as bit masks
+         const masks: number[] = [];
+         const n = avail.length;
+         if (count <= n) {
+            const combo: number[] = new Array(count);
+            function rec(start: number, depth: number) {
+               if (depth === count) {
+                  let m = 0;
+                  for (let t = 0; t < count; t++) m |= 1 << combo[t]!;
+                  masks.push(m);
+                  return;
+               }
+               for (let i = start; i <= n - (count - depth); i++) {
+                  combo[depth] = avail[i]!;
+                  rec(i + 1, depth + 1);
                }
             }
-         } else {
-            for (const i of letterplays[0]!) {
-               if (move == 1 && ((1 << i) & s.reddef) == 0) {
-                  s.blue = s.blue | (1 << i); // set 1 to position i
-                  s.red = s.red & ~(1 << i); // set 0 to position i
-               } else if (move == -1 && ((1 << i) & s.bluedef) == 0) {
-                  s.blue = s.blue & ~(1 << i); // set  0 to position i
-                  s.red = s.red | (1 << i); // set 1 to position i
-               }
+            if (count === 0) {
+               masks.push(0);
+            } else {
+               rec(0, 0);
             }
          }
+         letterMasksPerGroup.push(masks);
       }
-      // for each play create new maps for what the position looks like using those indexes, and evaluate each position
-      const oldred = s.red;
-      const oldblue = s.blue;
-      let key: number;
-      for (const play of wordplays) {
-         for (const i of play) {
-            if (move == 1 && ((1 << i) & s.reddef) == 0) {
-               s.blue = s.blue | (1 << i); // write 1 to position i
-               s.red = s.red & ~(1 << i); // write 0 to position i
-            } else if (move == -1 && ((1 << i) & s.bluedef) == 0) {
-               s.blue = s.blue & ~(1 << i); // write  0 to position i
-               s.red = s.red | (1 << i); // write 1 to position i
+      // 5) Stream the Cartesian product by recursive union of bit masks; evaluate each play on the fly.
+      const oldBlue = s.blue;
+      const oldRed = s.red;
+      const tempScore = new Score();
+      const groups = letterMasksPerGroup;
+      const gLen = groups.length;
+      function combine(this: Player, groupIdx: number, accMask: number) {
+         if (groupIdx === gLen) {
+            const playMask = accMask & this.BOARD_MASK;
+            // Apply allowed positions in one shot (skip defended cells)
+            if (move === 1) {
+               const allowed = playMask & ~s.reddef;
+               tempScore.blue = (oldBlue | allowed) & this.BOARD_MASK;
+               tempScore.red = oldRed & ~allowed & this.BOARD_MASK;
+            } else {
+               const allowed = playMask & ~s.bluedef;
+               tempScore.blue = oldBlue & ~allowed & this.BOARD_MASK;
+               tempScore.red = (oldRed | allowed) & this.BOARD_MASK;
             }
+            const key = this.packKey(tempScore.blue, tempScore.red);
+            if (!scores.has(key)) {
+               const val = this.evaluatePos(allLetters, tempScore);
+               scores.set(key, val);
+            }
+            return;
          }
-         key = this.packKey(s.blue, s.red);
-         if (!scores.get(key)) {
-            const score = this.evaluatePos(allLetters, s);
-            scores.set(key, score);
+         const masks = groups[groupIdx]!;
+         for (let i = 0; i < masks.length; i++) {
+            combine.call(this, groupIdx + 1, accMask | masks[i]!);
          }
-         s.red = oldred;
-         s.blue = oldblue;
       }
+      combine.call(this, 0, 0);
    }
 
    playIsSafe(group: string[], play: string) {
@@ -632,6 +696,24 @@ export class Player {
       return category.single % 2 === 0 && category.double % 2 === 0;
    }
 
+   // Fast grouping: use a 26-entry presence table for letters in 'anyl'
+   private groupWordsByPresence(words: string[], present: Uint8Array): Record<string, string[]> {
+      const groups: Record<string, string[]> = Object.create(null);
+      for (const word of words) {
+         let grp = '';
+         for (let i = 0; i < word.length; i++) {
+            const code = word.charCodeAt(i) - 65; // 'A'..'Z' -> 0..25
+            if (code >= 0 && code < 26 && present[code] === 1) {
+               grp += word[i]!;
+            }
+         }
+         // Sort letters to normalize group key (same letters, any order)
+         grp = grp ? grp.split('').sort().join('') : '';
+         (groups[grp] ??= []).push(word);
+      }
+      return groups;
+   }
+
    decide(
       allLetters: string,
       score: string,
@@ -648,7 +730,9 @@ export class Player {
       } else {
          targets = (s.blue & ~s.bluedef) | (~s.blue & ~s.red);
       }
+      // Build 'anyl' string and presence table once
       let anyl: string = '';
+      const anylPresent = new Uint8Array(26); // 0/1 per letter A..Z
       const dontuse: number[] = [];
       let goal: number = 0;
       let maxWordSize: number = 0;
@@ -667,6 +751,7 @@ export class Player {
             const letter = allLetters.charAt(i);
             if ((1 << i) & targets) {
                anyl += letter;
+               anylPresent[letter.charCodeAt(0) - 65] = 1;
             }
             if ((1 << i) & goal) {
                dontuse.push(i);
@@ -678,17 +763,19 @@ export class Player {
             const letter = allLetters.charAt(i);
             if ((1 << i) & targets) {
                anyl += letter;
+               anylPresent[letter.charCodeAt(0) - 65] = 1;
             }
          }
       }
       wordList = this.concentrate(allLetters, needLetters, notLetters, anyl);
-      const wordGroups = this.groupWords(wordList, anyl);
+      // const wordGroups = this.groupWords(wordList, anyl);
+      const wordGroups = this.groupWordsByPresence(wordList, anylPresent);
       const plays = [];
       for (const group in wordGroups) {
          // scores formed by different arrangements of the same group
          // entries of the form [blue,red]:score
          const scores: Map<number, number> = new Map();
-         this.arrange(allLetters, group, { ...s }, scores, dontuse, move);
+         this.arrange(allLetters, group, s, scores, dontuse, move);
          let blue, red;
          for (const [position, score] of scores) {
             const playscore = roundTo(score, 3);
@@ -732,6 +819,26 @@ export class Player {
       return plays;
    }
 
+   // Group plays by score, sort unique scores, then flatten.
+   private bucketSortByScore(plays: Play[], move: number): Play[] {
+      const buckets = new Map<number, Play[]>();
+      for (const p of plays) {
+         const k = p.score;
+         const b = buckets.get(k);
+         if (b) b.push(p);
+         else buckets.set(k, [p]);
+      }
+      const keys = Array.from(buckets.keys());
+      keys.sort((a, b) => (move > 0 ? b - a : a - b));
+      const out: Play[] = [];
+      for (const k of keys) {
+         const group = buckets.get(k)!;
+         // Preserve original relative order within a score bucket
+         out.push(...group);
+      }
+      return out;
+   }
+
    search(
       allLetters: string,
       score: string,
@@ -741,11 +848,11 @@ export class Player {
    ) {
       const plays = this.decide(allLetters, score, needLetters, notLetters, move);
       // TODO (?) implement random difficulty
-      if (move > 0) {
-         plays.sort((a, b) => b.score - a.score);
-      } else {
-         plays.sort((a, b) => a.score - b.score);
+      const LARGE_THRESHOLD = 200;
+      if (plays.length > LARGE_THRESHOLD) {
+         return this.bucketSortByScore(plays, move);
       }
+      plays.sort((a, b) => (move > 0 ? b.score - a.score : a.score - b.score));
       return plays;
    }
 

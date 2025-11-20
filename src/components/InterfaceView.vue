@@ -1,12 +1,12 @@
 <script setup lang="ts">
-   import { ref, type Ref, onMounted, computed, watch } from 'vue';
+   import { ref, type Ref, shallowRef, markRaw, onMounted, computed, watch } from 'vue';
    import BoardGrid from './BoardGrid.vue';
    import SearchResults from './SearchResults.vue';
    import { Player, Play, Score } from '../ts/player';
    import { LightColorTheme, mapsToColors } from '../ts/board';
    import { roundTo } from '../ts/util';
 
-   const theme = ref(new LightColorTheme());
+   const theme = shallowRef(markRaw(new LightColorTheme()));
    class HistoryEntry {
       type: number; //1 blue, -1 red, 0 initial position
       text: string; //word played or board letters
@@ -99,9 +99,8 @@
          wordFilterDebounced.value = val;
       }, DEBOUNCE_MS);
    });
-   const searchResultsKey = ref(0);
-   const searchResults: Ref<Play[]> = ref(new Array<Play>());
-   let player: Ref<Player | null> = ref(null);
+   const searchResults: Ref<Play[]> = shallowRef<Play[]>([]);
+   let player: Ref<Player | null> = shallowRef<Player | null>(null);
    const boardPreviewCellSize = 9;
 
    function readQueryParams() {
@@ -176,7 +175,7 @@
 
    onMounted(async () => {
       let wordList: string[] = await getWordList();
-      player.value = new Player(undefined, undefined, wordList);
+      player.value = markRaw(new Player(undefined, undefined, wordList));
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
       readQueryParams();
       if (!boardLetters.value) {
@@ -247,13 +246,12 @@
             searchResults.value = [];
             return;
          }
-         searchResults.value = player.value.search(
-            boardLettersUpperCase.value,
-            colorLettersUpperCase.value,
-            needLettersUpperCase.value,
-            notLettersUpperCase.value,
-            moveIndicator.value
-         );
+         const letters = boardLettersUpperCase.value;
+         const colors = colorLettersUpperCase.value;
+         const need = needLettersUpperCase.value;
+         const not = notLettersUpperCase.value;
+         const move = moveIndicator.value;
+         searchResults.value = player.value.search(letters, colors, need, not, move);
       } else {
          searchResults.value = [];
       }
@@ -298,7 +296,7 @@
       colorLetters.value = colors;
       moveIndicator.value = -moveIndicator.value;
       searchResults.value = [];
-      searchResultsKey.value++; //redraws the searcResults grid completely
+      wordFilter.value = '';
       syncState();
    }
 
@@ -533,7 +531,6 @@
             </div>
          </div>
          <SearchResults
-            :key="searchResultsKey"
             :boardLetters="boardLettersUpperCase"
             :player="player"
             :theme="theme"
