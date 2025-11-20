@@ -194,58 +194,86 @@ export class Player {
       assert(notLetters == notLetters.toUpperCase());
       assert(anyLetters == anyLetters.toUpperCase());
       const possibleWords = this.possible(allLetters);
-      let needLetterWordList = [];
-      if (needLetters != '') {
-         //find words that use all needLetters
-         for (const word of possibleWords) {
-            let good = true;
-            for (const letter of needLetters) {
-               if (word.split(letter).length < needLetters.split(letter).length) {
-                  good = false;
+      // Fast-path: no filters => return as-is
+      if (!needLetters && !notLetters && !anyLetters) return possibleWords;
+
+      const A = 65; // 'A'
+      // Board letter availability counts
+      const boardCnt = new Uint8Array(26);
+      for (let i = 0; i < 25; i++) {
+         const idx = allLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) boardCnt[idx]! += 1;
+      }
+      // Need / Not counts and index lists (to iterate only relevant letters)
+      const needCnt = new Uint8Array(26);
+      const needIdx: number[] = [];
+      for (let i = 0; i < needLetters.length; i++) {
+         const idx = needLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) {
+            if (needCnt[idx] === 0) needIdx.push(idx);
+            needCnt[idx]! += 1;
+         }
+      }
+      const notCnt = new Uint8Array(26);
+      const notIdx: number[] = [];
+      for (let i = 0; i < notLetters.length; i++) {
+         const idx = notLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) {
+            if (notCnt[idx] === 0) notIdx.push(idx);
+            notCnt[idx]! += 1;
+         }
+      }
+      // Any-letter presence
+      const anyPres = new Uint8Array(26);
+      const anyHas = anyLetters.length > 0;
+      for (let i = 0; i < anyLetters.length; i++) {
+         const idx = anyLetters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) anyPres[idx] = 1;
+      }
+      // Per-word counters only for relevant letters; reset via touched list
+      const wCnt = new Uint8Array(26);
+      const touched: number[] = [];
+
+      const out: string[] = [];
+      for (const word of possibleWords) {
+         let anyMatch = !anyHas;
+         // Count only letters we care about
+         for (let i = 0; i < word.length; i++) {
+            const idx = word.charCodeAt(i) - A;
+            if (idx < 0 || idx >= 26) continue;
+            if (needCnt[idx]! | notCnt[idx]! | anyPres[idx]!) {
+               if (wCnt[idx] === 0) touched.push(idx);
+               wCnt[idx]! += 1;
+               if (!anyMatch && anyPres[idx]) anyMatch = true;
+            }
+         }
+         // Check need: word must have at least the required counts
+         let ok = true;
+         for (let j = 0; j < needIdx.length; j++) {
+            const idx = needIdx[j]!;
+            if (wCnt[idx]! < needCnt[idx]!) {
+               ok = false;
+               break;
+            }
+         }
+         // Check not: cannot exceed available after reserving notCnt
+         if (ok && notIdx.length) {
+            for (let j = 0; j < notIdx.length; j++) {
+               const idx = notIdx[j]!;
+               const avail = boardCnt[idx]! - notCnt[idx]!;
+               if (wCnt[idx]! > avail) {
+                  ok = false;
                   break;
                }
             }
-            if (good) needLetterWordList.push(word);
          }
-      } else {
-         needLetterWordList = possibleWords;
+         if (ok && anyHas && !anyMatch) ok = false;
+         if (ok) out.push(word);
+         // Reset touched counters
+         for (let t = 0; t < touched.length; t++) wCnt[touched[t]!] = 0;
+         touched.length = 0;
       }
-      let notLetterWordList = [];
-      if (notLetters != '') {
-         //remove words that depend on notLetters
-         for (const word of needLetterWordList) {
-            let good = true;
-            for (const letter of notLetters) {
-               if (
-                  word.split(letter).length - 1 >
-                  allLetters.split(letter).length - notLetters.split(letter).length
-               ) {
-                  good = false;
-                  break;
-               }
-            }
-            if (good) notLetterWordList.push(word);
-         }
-      } else {
-         notLetterWordList = needLetterWordList;
-      }
-      let anyLetterWordList = [];
-      if (anyLetters != '') {
-         //remove words that don't use one of the anyLetters
-         for (const word of notLetterWordList) {
-            let good = false;
-            for (const letter of anyLetters) {
-               if (word.includes(letter)) {
-                  good = true;
-                  break;
-               }
-            }
-            if (good) anyLetterWordList.push(word);
-         }
-      } else {
-         anyLetterWordList = notLetterWordList;
-      }
-      return anyLetterWordList;
+      return out;
    }
 
    // TODO: move to board.js
