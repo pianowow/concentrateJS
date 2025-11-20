@@ -103,85 +103,99 @@ export class Player {
          );
          //so we don't suggest words that have already been played
       }
-      const found = [];
+      const A = 65; // 'A'
+      const boardCnt = new Uint8Array(26);
+      for (let i = 0; i < 25; i++) {
+         const idx = letters.charCodeAt(i) - A;
+         if (idx >= 0 && idx < 26) boardCnt[idx]! += 1;
+      }
+
+      const found: string[] = [];
       const wordsizelimit = this.difficulty.wordsizelimit;
-      let good = true;
-      for (const candidate of this.wordList.filter((word) => word.length < wordsizelimit)) {
-         good = true;
-         for (const letter of candidate) {
-            if (letters.split(letter).length < candidate.split(letter).length) {
-               good = false;
+
+      const wCnt = new Uint8Array(26);
+      const touched: number[] = [];
+
+      for (const candidate of this.wordList) {
+         if (candidate.length >= wordsizelimit) continue;
+         for (let i = 0; i < candidate.length; i++) {
+            const idx = candidate.charCodeAt(i) - A;
+            if (idx < 0 || idx >= 26) continue;
+            if (wCnt[idx] === 0) touched.push(idx);
+            wCnt[idx]! += 1;
+         }
+         let ok = true;
+         for (let t = 0; t < touched.length; t++) {
+            const idx = touched[t]!;
+            if (wCnt[idx]! > boardCnt[idx]!) {
+               ok = false;
                break;
             }
          }
-         if (good) {
-            found.push(candidate);
-         }
+         if (ok) found.push(candidate);
+         for (let t = 0; t < touched.length; t++) wCnt[touched[t]!] = 0;
+         touched.length = 0;
       }
       // TODO consider moving calculation of scores and popularity to another method
-      const letterdict = Object();
+      const letterCnt = new Uint16Array(26);
       for (const word of found) {
-         for (const letter of word) {
-            if (letterdict[letter]) {
-               letterdict[letter] += 1;
-            } else {
-               letterdict[letter] = 1;
-            }
+         for (let i = 0; i < word.length; i++) {
+            const idx = word.charCodeAt(i) - A;
+            if (idx >= 0 && idx < 26) letterCnt[idx]! += 1;
          }
       }
-      const letterlist = [];
-      const cnt = [];
-      for (const letter in letterdict) {
-         letterlist.push(letter);
-         cnt.push(letterdict[letter]);
+      let maxcnt = 0;
+      for (let i = 0; i < 26; i++) {
+         if (letterCnt[i]! > maxcnt) maxcnt = letterCnt[i]!;
       }
-      const maxcnt = Math.max(...cnt);
-      for (const i in cnt) {
-         cnt[i] = cnt[i] / maxcnt; // makes all between 0 and 1
-      }
-      for (const [i, letter] of letterlist.entries()) {
-         letterdict[letter] = roundTo(cnt[i], 2);
-      }
-      for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-         if (!letterdict[letter]) {
-            letterdict[letter] = 0;
+      const letterScore = new Float32Array(26); //normalized [0..1]
+      if (maxcnt > 0) {
+         for (let i = 0; i < 26; i++) {
+            letterScore[i] = roundTo(letterCnt[i]! / maxcnt, 2);
          }
       }
       // calculate defended scores
       const d = new Float32Array(25);
       for (let i = 0; i < 25; i++) {
-         d[i] = roundTo(
-            this.weights.dw + this.weights.dpw * (1 - letterdict[letters.charAt(i)]),
-            2
-         );
+         const idx = letters.charCodeAt(i) - A;
+         const pop = idx >= 0 && idx < 26 ? letterScore[idx]! : 0;
+         d[i] = roundTo(this.weights.dw + this.weights.dpw * (1 - pop), 2);
       }
       // calculate undefended scores
       const u = new Float32Array(25);
       for (let row = 0; row < 5; row++) {
          for (let col = 0; col < 5; col++) {
-            const neighborList = [];
+            const i = row * 5 + col;
+            const idx = letters.charCodeAt(i);
+            const curPop = idx >= 0 && idx < 26 ? letterScore[idx]! : 0;
+            let sum = 0;
+            let n = 0;
             if (row - 1 >= 0) {
-               neighborList.push(letterdict[letters.charAt((row - 1) * 5 + col)]);
+               const j = (row - 1) * 5 + col;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
             if (col + 1 < 5) {
-               neighborList.push(letterdict[letters.charAt(row * 5 + col + 1)]);
+               const j = row * 5 + col + 1;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
             if (row + 1 < 5) {
-               neighborList.push(letterdict[letters.charAt((row + 1) * 5 + col)]);
+               const j = (row + 1) * 5 + col;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
             if (col - 1 >= 0) {
-               neighborList.push(letterdict[letters.charAt(row * 5 + col - 1)]);
+               const j = row * 5 + col - 1;
+               const idj = letters.charCodeAt(j) - A;
+               sum += idj >= 0 && idj < 26 ? letterScore[idj]! : 0;
+               n++;
             }
-            const size = neighborList.length;
-            for (let x = 0; x < size; x++) {
-               neighborList.push(1 - letterdict[letters.charAt(row * 5 + col)]);
-            }
-            u[row * 5 + col] = roundTo(
-               this.weights.uw +
-                  (this.weights.upw * neighborList.reduce((prev, curr) => prev + curr)) /
-                     neighborList.length,
-               2
-            );
+            const mean = n ? (sum + n * (1 - curPop)) / (2 * n) : 0;
+            u[i] = roundTo(this.weights.uw + this.weights.upw * mean, 2);
          }
       }
       this.cache[letters] = [found, [], d, u]; // valid words, played words, defended scores, undefended scores
