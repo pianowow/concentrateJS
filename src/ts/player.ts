@@ -166,7 +166,7 @@ export class Player {
       for (let row = 0; row < 5; row++) {
          for (let col = 0; col < 5; col++) {
             const i = row * 5 + col;
-            const idx = letters.charCodeAt(i);
+            const idx = letters.charCodeAt(i) - A;
             const curPop = idx >= 0 && idx < 26 ? letterScore[idx]! : 0;
             let sum = 0;
             let n = 0;
