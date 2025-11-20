@@ -70,7 +70,7 @@ export class Player {
    difficulty: Difficulty;
    weights: Weights;
    name: string;
-   neighbors: number[];
+   neighbors: Uint32Array;
    cache;
    hashtable;
    wordList: string[];
@@ -148,7 +148,7 @@ export class Player {
          }
       }
       // calculate defended scores
-      const d = Array(25).fill(0);
+      const d = new Float32Array(25);
       for (let i = 0; i < 25; i++) {
          d[i] = roundTo(
             this.weights.dw + this.weights.dpw * (1 - letterdict[letters.charAt(i)]),
@@ -156,7 +156,7 @@ export class Player {
          );
       }
       // calculate undefended scores
-      const u = Array(25).fill(0);
+      const u = new Float32Array(25);
       for (let row = 0; row < 5; row++) {
          for (let col = 0; col < 5; col++) {
             const neighborList = [];
