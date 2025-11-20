@@ -9,6 +9,7 @@
       "preview": "vite preview",
       "lint": "eslint . --fix",
       "test": "vitest",
+      "bench": "vitest bench --run",
       "test:watch": "vitest --watch",
       "test:ui": "vitest --ui",
       "typecheck": "vue-tsc --noEmit -p tsconfig.json",
