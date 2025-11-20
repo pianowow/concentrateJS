@@ -44,7 +44,7 @@
    function addToHistory(play: Play) {
       emit('add-to-history', play);
    }
-   watch([wordFilter, pageSize], () => {
+   watch([wordFilter, pageSize, searchResults], () => {
       currentPage.value = 0;
    });
 

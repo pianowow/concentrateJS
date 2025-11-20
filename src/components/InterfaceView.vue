@@ -296,6 +296,8 @@
       colorLetters.value = colors;
       moveIndicator.value = -moveIndicator.value;
       searchResults.value = [];
+      needLetters.value = '';
+      notLetters.value = '';
       wordFilter.value = '';
       syncState();
    }
