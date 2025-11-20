@@ -508,81 +508,89 @@ export class Player {
       avoidIndexes: number[] = [],
       move = 1
    ): void {
-      // function to evaluate all placements of a word
-      // for each unique letter, get a list of lists for the indexes it can be played in
+      // Evaluate all placements of a word
+      // 1) Count occurrences per distinct letter in the word.
       const wordhist: Record<string, number> = {};
       for (const letter of word) {
-         wordhist[letter] = word.split(letter).length - 1;
+         wordhist[letter] = (wordhist[letter] ?? 0) + 1;
       }
-      const letteroptions: number[][][] = [];
+      // 2) Build positions-by-letter once by scanning the board.
+      const posByLetter: Record<string, number[]> = Object.create(null);
+      for (let i = 0; i < allLetters.length; i++) {
+         const ch = allLetters.charAt(i);
+         (posByLetter[ch] ??= []).push(i);
+      }
+      // 3) Avoided positions bitmask.
+      let avoidMask = 0;
+      for (const i of avoidIndexes) avoidMask |= 1 << i;
+      // 4) For each distinct letter, precompute the bitmask combos of its positions choose count.
+      const letterMasksPerGroup: number[][] = [];
       for (const letter in wordhist) {
-         const letterplaces: number[] = [];
-         for (let i = 0; i < allLetters.length; i++) {
-            const letter2 = allLetters.charAt(i);
-            if (letter == letter2 && avoidIndexes.indexOf(i) < 0) {
-               //letter matches and we weren't told to avoid this spot
-               letterplaces.push(i);
-            }
+         const count = wordhist[letter]!;
+         const allPos = posByLetter[letter] ?? [];
+         // Filter out avoided positions
+         const avail: number[] = [];
+         for (let k = 0; k < allPos.length; k++) {
+            const idx = allPos[k]!;
+            if ((avoidMask & (1 << idx)) === 0) avail.push(idx);
          }
-         const letterCombos: number[][] = [];
-         for (const combo of this.combinations(letterplaces, wordhist[letter]!)) {
-            letterCombos.push(combo);
-         }
-         letteroptions.push(letterCombos);
-      }
-      // create a new list with enough elements to hold all the options above (multiply the length of all the lists)
-      let lenwordplays = 1;
-      for (const lst of letteroptions) {
-         lenwordplays *= lst.length;
-      }
-      const wordplays: number[][] = Array.from({ length: lenwordplays }, () => [] as number[]);
-      // write the options to wordPlays to get all the ways to play this word
-      // [[[1,],[2]],[[3,4],[3,5],[4,5]]] becomes [[1,3,4],[1,3,5],[1,4,5],[2,3,4],[2,3,5],[2,4,5]]
-      let divisor = 1;
-      for (const letterplays of letteroptions) {
-         divisor *= letterplays.length;
-         const cutoff = Math.floor(lenwordplays / divisor);
-         if (letterplays.length > 1) {
-            for (let playindex = 0; playindex < lenwordplays; playindex++) {
-               const lookup = Math.floor(playindex / cutoff) % letterplays.length;
-               for (const index of letterplays[lookup]!) {
-                  wordplays[playindex]!.push(index);
+         // Generate combinations as bit masks
+         const masks: number[] = [];
+         const n = avail.length;
+         if (count <= n) {
+            const combo: number[] = new Array(count);
+            function rec(start: number, depth: number) {
+               if (depth === count) {
+                  let m = 0;
+                  for (let t = 0; t < count; t++) m |= 1 << combo[t]!;
+                  masks.push(m);
+                  return;
+               }
+               for (let i = start; i <= n - (count - depth); i++) {
+                  combo[depth] = avail[i]!;
+                  rec(i + 1, depth + 1);
                }
             }
-         } else {
-            for (const i of letterplays[0]!) {
-               if (move == 1 && ((1 << i) & s.reddef) == 0) {
-                  s.blue = s.blue | (1 << i); // set 1 to position i
-                  s.red = s.red & ~(1 << i); // set 0 to position i
-               } else if (move == -1 && ((1 << i) & s.bluedef) == 0) {
-                  s.blue = s.blue & ~(1 << i); // set  0 to position i
-                  s.red = s.red | (1 << i); // set 1 to position i
-               }
+            if (count === 0) {
+               masks.push(0);
+            } else {
+               rec(0, 0);
             }
          }
+         letterMasksPerGroup.push(masks);
       }
-      // for each play create new maps for what the position looks like using those indexes, and evaluate each position
-      const oldred = s.red;
-      const oldblue = s.blue;
-      let key: number;
-      for (const play of wordplays) {
-         for (const i of play) {
-            if (move == 1 && ((1 << i) & s.reddef) == 0) {
-               s.blue = s.blue | (1 << i); // write 1 to position i
-               s.red = s.red & ~(1 << i); // write 0 to position i
-            } else if (move == -1 && ((1 << i) & s.bluedef) == 0) {
-               s.blue = s.blue & ~(1 << i); // write  0 to position i
-               s.red = s.red | (1 << i); // write 1 to position i
+      // 5) Stream the Cartesian product by recursive union of bit masks; evaluate each play on the fly.
+      const oldBlue = s.blue;
+      const oldRed = s.red;
+      const tempScore = new Score();
+      const groups = letterMasksPerGroup;
+      const gLen = groups.length;
+      function combine(this: Player, groupIdx: number, accMask: number) {
+         if (groupIdx === gLen) {
+            const playMask = accMask & this.BOARD_MASK;
+            // Apply allowed positions in one shot (skip defended cells)
+            if (move === 1) {
+               const allowed = playMask & ~s.reddef;
+               tempScore.blue = (oldBlue | allowed) & this.BOARD_MASK;
+               tempScore.red = oldRed & ~allowed & this.BOARD_MASK;
+            } else {
+               const allowed = playMask & ~s.bluedef;
+               tempScore.blue = oldBlue & ~allowed & this.BOARD_MASK;
+               tempScore.red = (oldRed | allowed) & this.BOARD_MASK;
             }
+            const key = this.packKey(tempScore.blue, tempScore.red);
+            if (!scores.has(key)) {
+               const val = this.evaluatePos(allLetters, tempScore);
+               scores.set(key, val);
+            }
+            return;
          }
-         key = this.packKey(s.blue, s.red);
-         if (!scores.get(key)) {
-            const score = this.evaluatePos(allLetters, s);
-            scores.set(key, score);
+         const masks = groups[groupIdx]!;
+         for (let i = 0; i < masks.length; i++) {
+            combine.call(this, groupIdx + 1, accMask | masks[i]!);
          }
-         s.red = oldred;
-         s.blue = oldblue;
       }
+      combine.call(this, 0, 0);
    }
 
    playIsSafe(group: string[], play: string) {
@@ -646,6 +654,24 @@ export class Player {
       return category.single % 2 === 0 && category.double % 2 === 0;
    }
 
+   // Fast grouping: use a 26-entry presence table for letters in 'anyl'
+   private groupWordsByPresence(words: string[], present: Uint8Array): Record<string, string[]> {
+      const groups: Record<string, string[]> = Object.create(null);
+      for (const word of words) {
+         let grp = '';
+         for (let i = 0; i < word.length; i++) {
+            const code = word.charCodeAt(i) - 65; // 'A'..'Z' -> 0..25
+            if (code >= 0 && code < 26 && present[code] === 1) {
+               grp += word[i]!;
+            }
+         }
+         // Sort letters to normalize group key (same letters, any order)
+         grp = grp ? grp.split('').sort().join('') : '';
+         (groups[grp] ??= []).push(word);
+      }
+      return groups;
+   }
+
    decide(
       allLetters: string,
       score: string,
@@ -662,7 +688,9 @@ export class Player {
       } else {
          targets = (s.blue & ~s.bluedef) | (~s.blue & ~s.red);
       }
+      // Build 'anyl' string and presence table once
       let anyl: string = '';
+      const anylPresent = new Uint8Array(26); // 0/1 per letter A..Z
       const dontuse: number[] = [];
       let goal: number = 0;
       let maxWordSize: number = 0;
@@ -681,6 +709,7 @@ export class Player {
             const letter = allLetters.charAt(i);
             if ((1 << i) & targets) {
                anyl += letter;
+               anylPresent[letter.charCodeAt(0) - 65] = 1;
             }
             if ((1 << i) & goal) {
                dontuse.push(i);
@@ -692,17 +721,19 @@ export class Player {
             const letter = allLetters.charAt(i);
             if ((1 << i) & targets) {
                anyl += letter;
+               anylPresent[letter.charCodeAt(0) - 65] = 1;
             }
          }
       }
       wordList = this.concentrate(allLetters, needLetters, notLetters, anyl);
-      const wordGroups = this.groupWords(wordList, anyl);
+      // const wordGroups = this.groupWords(wordList, anyl);
+      const wordGroups = this.groupWordsByPresence(wordList, anylPresent);
       const plays = [];
       for (const group in wordGroups) {
          // scores formed by different arrangements of the same group
          // entries of the form [blue,red]:score
          const scores: Map<number, number> = new Map();
-         this.arrange(allLetters, group, { ...s }, scores, dontuse, move);
+         this.arrange(allLetters, group, s, scores, dontuse, move);
          let blue, red;
          for (const [position, score] of scores) {
             const playscore = roundTo(score, 3);
