@@ -746,6 +746,26 @@ export class Player {
       return plays;
    }
 
+   // Group plays by score, sort unique scores, then flatten.
+   private bucketSortByScore(plays: Play[], move: number): Play[] {
+      const buckets = new Map<number, Play[]>();
+      for (const p of plays) {
+         const k = p.score;
+         const b = buckets.get(k);
+         if (b) b.push(p);
+         else buckets.set(k, [p]);
+      }
+      const keys = Array.from(buckets.keys());
+      keys.sort((a, b) => (move > 0 ? b - a : a - b));
+      const out: Play[] = [];
+      for (const k of keys) {
+         const group = buckets.get(k)!;
+         // Preserve original relative order within a score bucket
+         out.push(...group);
+      }
+      return out;
+   }
+
    search(
       allLetters: string,
       score: string,
@@ -755,11 +775,11 @@ export class Player {
    ) {
       const plays = this.decide(allLetters, score, needLetters, notLetters, move);
       // TODO (?) implement random difficulty
-      if (move > 0) {
-         plays.sort((a, b) => b.score - a.score);
-      } else {
-         plays.sort((a, b) => a.score - b.score);
+      const LARGE_THRESHOLD = 200;
+      if (plays.length > LARGE_THRESHOLD) {
+         return this.bucketSortByScore(plays, move);
       }
+      plays.sort((a, b) => (move > 0 ? b.score - a.score : a.score - b.score));
       return plays;
    }
 
