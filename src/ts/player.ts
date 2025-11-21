@@ -852,7 +852,7 @@ export class Player {
       const out: Play[] = [];
       for (const k of keys) {
          const group = buckets.get(k)!;
-         // Preserve original relative order within a score bucket
+         group.sort((a, b) => b.word.length - a.word.length);
          out.push(...group);
       }
       return out;
@@ -871,7 +871,11 @@ export class Player {
       if (plays.length > LARGE_THRESHOLD) {
          return this.bucketSortByScore(plays, move);
       }
-      plays.sort((a, b) => (move > 0 ? b.score - a.score : a.score - b.score));
+      plays.sort((a, b) => {
+         const diff = move > 0 ? b.score - a.score : a.score - b.score;
+         if (diff !== 0) return diff;
+         return b.word.length - a.word.length;
+      });
       return plays;
    }
 
