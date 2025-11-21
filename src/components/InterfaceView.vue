@@ -343,14 +343,14 @@
                Edit Board
             </button>
             <div class="board-input" v-show="showBoardEdit">
-               <h4>Note: changing these will clear history</h4>
+               <h4>Note: changing board or color will clear history</h4>
                <div class="input-div">
                   <label for="turn-input">Turn</label>
                   <select
                      id="turn-input"
                      class="input"
                      v-model.number="moveIndicator"
-                     @change="clearHistorySyncState()"
+                     @change="syncState()"
                   >
                      <option :value="1">Blue to play</option>
                      <option :value="-1">Red to play</option>
