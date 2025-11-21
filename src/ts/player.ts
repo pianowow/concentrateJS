@@ -244,6 +244,13 @@ export class Player {
          const idx = anyLetters.charCodeAt(i) - A;
          if (idx >= 0 && idx < 26) anyPres[idx] = 1;
       }
+      // build prefix set of played words
+      const prefixBlocked = new Set<string>();
+      for (const played of this.cache[allLetters][1]) {
+         for (let i = 1; i < played.length; i++) {
+            prefixBlocked.add(played.slice(0, i));
+         }
+      }
       // Per-word counters only for relevant letters; reset via touched list
       const wCnt = new Uint8Array(26);
       const touched: number[] = [];
@@ -281,7 +288,19 @@ export class Player {
                }
             }
          }
+         const prefix = prefixBlocked.has(word) ? true : false;
+         if (prefix) {
+            console.log(
+               'word blocked: ' +
+                  word +
+                  ' prefix set: ' +
+                  JSON.stringify(prefixBlocked) +
+                  ' word list: ' +
+                  JSON.stringify(this.cache[allLetters][1])
+            );
+         }
          if (ok && anyHas && !anyMatch) ok = false;
+         if (ok && prefix) ok = false;
          if (ok) out.push(word);
          // Reset touched counters
          for (let t = 0; t < touched.length; t++) wCnt[touched[t]!] = 0;
