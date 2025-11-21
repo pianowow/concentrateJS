@@ -29,7 +29,6 @@ describe('Player.decide ', () => {
       player.concentrate(letters, '', '', '');
       decideResults = player.decide(letters, colors, '', '', 1);
       decideResults.sort((a, b) => b.score - a.score);
-      console.log(decideResults.slice(0, 10));
       expect(decideResults.reduce((a, b) => (a.score < b.score ? b : a)).score).toEqual(23000);
    });
 });
