@@ -2,6 +2,7 @@
    import { ref, type Ref, shallowRef, markRaw, onMounted, computed, watch } from 'vue';
    import BoardGrid from './BoardGrid.vue';
    import SearchResults from './SearchResults.vue';
+   import HistoryTable from './HistoryTable.vue';
    import { Player, Play, Score } from '../ts/player';
    import { LightColorTheme, mapsToColors } from '../ts/board';
    import { roundTo } from '../ts/util';
@@ -138,7 +139,6 @@
             }
 
             selectedHistoryIndex.value = index;
-            historyCurrentPage.value = Math.floor(index / historyPageSize.value);
          }
          if (player.value) {
             player.value.possible(boardLettersUpperCase.value);
@@ -185,30 +185,6 @@
       }
       updateQueryParams();
       runSearch();
-   });
-
-   const historyPageSize = ref(20);
-   const historyCurrentPage = ref(0);
-   const historyTotalPages = computed(() =>
-      Math.max(1, Math.ceil(historyList.value.length / historyPageSize.value))
-   );
-   const historyStartIndex = computed(() => historyCurrentPage.value * historyPageSize.value);
-   const pagedHistory = computed(() =>
-      historyList.value.slice(
-         historyStartIndex.value,
-         historyStartIndex.value + historyPageSize.value
-      )
-   );
-   const historyRowHeightPx = computed(() => boardPreviewCellSize * 5 + 4);
-   function goToHistoryPage(p: number) {
-      historyCurrentPage.value = Math.min(Math.max(p, 0), historyTotalPages.value - 1);
-   }
-   watch([selectedHistoryIndex, historyPageSize], () => {
-      if (selectedHistoryIndex.value === null) {
-         historyCurrentPage.value = 0;
-      } else {
-         historyCurrentPage.value = Math.floor(selectedHistoryIndex.value / historyPageSize.value);
-      }
    });
 
    function clearHistory() {
@@ -290,7 +266,6 @@
       }
 
       historyList.value.push(new HistoryEntry(moveIndicator.value, word, colors, score));
-      historyCurrentPage.value = Math.floor((historyList.value.length - 1) / historyPageSize.value);
       player.value!.playword(boardLettersUpperCase.value, word);
       selectedHistoryIndex.value = historyList.value.length - 1;
       colorLetters.value = colors;
@@ -382,104 +357,14 @@
          </div>
          <h3>History</h3>
          <div class="history-grid">
-            <div class="table-container">
-               <table class="results-table">
-                  <thead>
-                     <tr>
-                        <th style="text-align: left; width: 80px">Move</th>
-                        <th style="text-align: left">Word</th>
-                        <th style="text-align: left; width: 100px">Score</th>
-                        <th style="text-align: left; width: 80px">Board</th>
-                     </tr>
-                  </thead>
-                  <tbody>
-                     <tr
-                        v-for="(entry, i) in pagedHistory"
-                        :key="historyStartIndex + i + '-' + entry.text"
-                        :class="{ selected: historyStartIndex + i === selectedHistoryIndex }"
-                        :style="{ height: historyRowHeightPx + 'px', cursor: 'pointer' }"
-                        @click="onHistoryRowClicked(entry, historyStartIndex + i)"
-                     >
-                        <td>
-                           <div class="move-cell-wrapper">
-                              <div
-                                 class="move-cell"
-                                 :style="{
-                                    backgroundColor:
-                                       entry.type === 1
-                                          ? theme.defendedBlue
-                                          : entry.type === -1
-                                            ? theme.defendedRed
-                                            : theme.defaultColor,
-                                 }"
-                              ></div>
-                           </div>
-                        </td>
-                        <td>{{ entry.text }}</td>
-                        <td>{{ entry.score }}</td>
-                        <td>
-                           <BoardGrid
-                              :letters="boardLettersUpperCase"
-                              :colors="entry.colors"
-                              :theme="theme"
-                              :size="boardPreviewCellSize"
-                           />
-                        </td>
-                     </tr>
-                  </tbody>
-               </table>
-            </div>
-            <div class="pager">
-               <div class="pager-left">
-                  <label
-                     >Page Size:
-                     <select v-model.number="historyPageSize" class="pager-select">
-                        <option :value="20">20</option>
-                        <option :value="50">50</option>
-                        <option :value="100">100</option>
-                     </select>
-                  </label>
-               </div>
-               <div class="pager-right">
-                  <button
-                     type="button"
-                     aria-label="First Page"
-                     title="First Page"
-                     @click="goToHistoryPage(0)"
-                     :disabled="historyCurrentPage === 0"
-                  >
-                     |&lt;
-                  </button>
-                  <button
-                     type="button"
-                     aria-label="Previous Page"
-                     title="Previous Page"
-                     @click="goToHistoryPage(historyCurrentPage - 1)"
-                     :disabled="historyCurrentPage === 0"
-                  >
-                     &lt;
-                  </button>
-                  <span>Page {{ historyCurrentPage + 1 }} / {{ historyTotalPages }}</span>
-                  <button
-                     type="button"
-                     aria-label="Next Page"
-                     title="Next Page"
-                     @click="goToHistoryPage(historyCurrentPage + 1)"
-                     :disabled="historyCurrentPage >= historyTotalPages - 1"
-                  >
-                     &gt;
-                  </button>
-                  <button
-                     type="button"
-                     aria-label="Last Page"
-                     title="Last Page"
-                     @click="goToHistoryPage(historyTotalPages - 1)"
-                     :disabled="historyCurrentPage >= historyTotalPages - 1"
-                  >
-                     &gt;|
-                  </button>
-               </div>
-            </div>
+            <HistoryTable
+               :historyList="historyList"
+               :boardLetters="boardLettersUpperCase"
+               :theme="theme"
+               :boardPreviewCellSize="boardPreviewCellSize"
+               :selectedIndex="selectedHistoryIndex"
+               @row-click="onHistoryRowClicked"
+            />
          </div>
       </div>
       <div class="right-pane">
