@@ -292,7 +292,7 @@
       historyList.value.push(new HistoryEntry(moveIndicator.value, word, colors, score));
       historyCurrentPage.value = Math.floor((historyList.value.length - 1) / historyPageSize.value);
       player.value!.playword(boardLettersUpperCase.value, word);
-      selectedHistoryIndex.value = null;
+      selectedHistoryIndex.value = historyList.value.length - 1;
       colorLetters.value = colors;
       moveIndicator.value = -moveIndicator.value;
       searchResults.value = [];
