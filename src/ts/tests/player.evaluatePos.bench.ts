@@ -1,5 +1,6 @@
 import { bench, describe } from 'vitest';
-import { Player, Score } from '../player';
+import { Player } from '../player';
+import { Score, convertBoardScore } from '../board';
 
 describe('Player.evaluatePos bench', async () => {
    const letters = 'TNMHINIAZILIDOYLBPUAPNSQR';
@@ -11,35 +12,35 @@ describe('Player.evaluatePos bench', async () => {
    p.possible(letters);
 
    const samples: Score[] = [
-      p.convertBoardScore('wwwwwwwwwwwwwwwwwwwwwwwww'.toUpperCase()),
-      p.convertBoardScore('wrRrRwrrwrwrwrRwwwwrwwrwr'.toUpperCase()),
-      p.convertBoardScore('wrrbrwbrbbwrbbrwwwbbwwbBB'.toUpperCase()),
-      p.convertBoardScore('wrRRrrRRrbrRrrrwrwbrwwrbb'.toUpperCase()),
-      p.convertBoardScore('wrRrbbrrbBrrbBBwrwbBwbrbB'.toUpperCase()),
-      p.convertBoardScore('wrRRrrRRrbrRrbBwrwbBwrrrb'.toUpperCase()),
-      p.convertBoardScore('wbrrbbrrbBrrbBBwbwbBwrbBB'.toUpperCase()),
-      p.convertBoardScore('wrRrrrRrbbRRrbBrrwbBwrrbB'.toUpperCase()),
-      p.convertBoardScore('wbrbBbrbBBrrbBBbbwbBwrbBB'.toUpperCase()),
-      p.convertBoardScore('wrRrbrRrbBRRrbBrRrbBwrrbB'.toUpperCase()),
-      p.convertBoardScore('BbrbBbrrbBrrbBBrRrbBbrbBB'.toUpperCase()),
-      p.convertBoardScore('wwwrRwrrRRrwwrrwwrrwwwrrw'.toUpperCase()),
-      p.convertBoardScore('BBBbrBbbrrbwwbbwbrbwwwrrw'.toUpperCase()),
-      p.convertBoardScore('BbbrRbrrrRbrwbrrRrrwRRRRr'.toUpperCase()),
-      p.convertBoardScore('BBBbrBBBbrBbbbbbrrrbrRRrb'.toUpperCase()),
-      p.convertBoardScore('RRrwwRRrwwRrwwwrwrwwRrwww'.toUpperCase()),
-      p.convertBoardScore('RRrwwRRrwbrrwbwbbbBbrbBBB'.toUpperCase()),
-      p.convertBoardScore('RRrwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
-      p.convertBoardScore('RrbwwRrbwbrbwbwRrbBbrbBBB'.toUpperCase()),
-      p.convertBoardScore('RRrwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
-      p.convertBoardScore('RrbwwRrbwbrbwbwRrbBbrbBBB'.toUpperCase()),
-      p.convertBoardScore('RRrwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
-      p.convertBoardScore('RrbwwRrbwbrbwbwRrbBbrbBBB'.toUpperCase()),
-      p.convertBoardScore('RrbwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
-      p.convertBoardScore('rbbwwRrbwbrbwrwRrbbbrbBBB'.toUpperCase()),
-      p.convertBoardScore('rbbwwRrrwrRrwrwRRrrrRrbbb'.toUpperCase()),
-      p.convertBoardScore('rbBbwrbbwrrbwbwRrbBbrbBBB'.toUpperCase()),
-      p.convertBoardScore('rbbrRrbrRrRrwrwRRrbbRrbBB'.toUpperCase()),
-      p.convertBoardScore('BBbrrbbbrbrrbbBRrbBBrbBBB'.toUpperCase()),
+      convertBoardScore('wwwwwwwwwwwwwwwwwwwwwwwww'.toUpperCase()),
+      convertBoardScore('wrRrRwrrwrwrwrRwwwwrwwrwr'.toUpperCase()),
+      convertBoardScore('wrrbrwbrbbwrbbrwwwbbwwbBB'.toUpperCase()),
+      convertBoardScore('wrRRrrRRrbrRrrrwrwbrwwrbb'.toUpperCase()),
+      convertBoardScore('wrRrbbrrbBrrbBBwrwbBwbrbB'.toUpperCase()),
+      convertBoardScore('wrRRrrRRrbrRrbBwrwbBwrrrb'.toUpperCase()),
+      convertBoardScore('wbrrbbrrbBrrbBBwbwbBwrbBB'.toUpperCase()),
+      convertBoardScore('wrRrrrRrbbRRrbBrrwbBwrrbB'.toUpperCase()),
+      convertBoardScore('wbrbBbrbBBrrbBBbbwbBwrbBB'.toUpperCase()),
+      convertBoardScore('wrRrbrRrbBRRrbBrRrbBwrrbB'.toUpperCase()),
+      convertBoardScore('BbrbBbrrbBrrbBBrRrbBbrbBB'.toUpperCase()),
+      convertBoardScore('wwwrRwrrRRrwwrrwwrrwwwrrw'.toUpperCase()),
+      convertBoardScore('BBBbrBbbrrbwwbbwbrbwwwrrw'.toUpperCase()),
+      convertBoardScore('BbbrRbrrrRbrwbrrRrrwRRRRr'.toUpperCase()),
+      convertBoardScore('BBBbrBBBbrBbbbbbrrrbrRRrb'.toUpperCase()),
+      convertBoardScore('RRrwwRRrwwRrwwwrwrwwRrwww'.toUpperCase()),
+      convertBoardScore('RRrwwRRrwbrrwbwbbbBbrbBBB'.toUpperCase()),
+      convertBoardScore('RRrwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
+      convertBoardScore('RrbwwRrbwbrbwbwRrbBbrbBBB'.toUpperCase()),
+      convertBoardScore('RRrwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
+      convertBoardScore('RrbwwRrbwbrbwbwRrbBbrbBBB'.toUpperCase()),
+      convertBoardScore('RRrwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
+      convertBoardScore('RrbwwRrbwbrbwbwRrbBbrbBBB'.toUpperCase()),
+      convertBoardScore('RrbwwRRrwbRrwrwRRrbrRrbBb'.toUpperCase()),
+      convertBoardScore('rbbwwRrbwbrbwrwRrbbbrbBBB'.toUpperCase()),
+      convertBoardScore('rbbwwRrrwrRrwrwRRrrrRrbbb'.toUpperCase()),
+      convertBoardScore('rbBbwrbbwrrbwbwRrbBbrbBBB'.toUpperCase()),
+      convertBoardScore('rbbrRrbrRrRrwrwRRrbbRrbBB'.toUpperCase()),
+      convertBoardScore('BBbrrbbbrbrrbbBRrbBBrbBBB'.toUpperCase()),
    ];
 
    //Accumulator to prevent elimination

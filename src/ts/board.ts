@@ -1,3 +1,5 @@
+import { Vector } from './util';
+
 export class LightColorTheme {
    defaultColor = 'rgb(233,232,229)';
    defaultColor2 = 'rgb(230,229,226)';
@@ -10,6 +12,21 @@ export class LightColorTheme {
    defendedBlueText = 'rgb(0,32,51)';
    redText = 'rgb(49,30,28)';
    defendedRedText = 'rgb(51,13,9)';
+}
+
+export const BOARD_MASK: number = (1 << 25) - 1;
+
+export class Score {
+   blue: number;
+   red: number;
+   bluedef: number;
+   reddef: number;
+   constructor(blue = 0, red = 0, bluedef = 0, reddef = 0) {
+      this.blue = blue;
+      this.red = red;
+      this.bluedef = bluedef;
+      this.reddef = reddef;
+   }
 }
 
 // used to have methods/functions to compute these every time, but they're constants so I decided to hard-code them
@@ -43,4 +60,90 @@ export function mapsToColors(blue: number, red: number): string {
       }
    }
    return s;
+}
+
+/**
+ * Returns number of set bits of a number
+ * ex.: 5 is 101 in binary, so it would return 2 for the two set 1s.
+ * Kerninghan's algorithm
+ */
+export function bitCount(n: number): number {
+   let c = 0;
+   n |= 0; //ensure 32-bit
+   while (n) {
+      n &= n - 1;
+      c++;
+   }
+   return c;
+}
+
+export function defendedMap(posmap: number): number {
+   const n = neighbors;
+   let defmap = 0;
+   for (let i = 0; i < 25; i++) {
+      if ((posmap & n[i]!) == n[i]) {
+         defmap = defmap | (1 << i);
+      }
+   }
+   return defmap;
+}
+export function convertBoardScore(scoreString: string) {
+   // produces bitmaps from a string of characters representing the colors
+   let i = 0;
+   let prevchar = 'W';
+   const s = new Score();
+   for (const char of scoreString) {
+      if (i < 25) {
+         if (char == 'B') {
+            s.blue = s.blue | (1 << i);
+            prevchar = char;
+            i += 1;
+         } else if (char == 'R') {
+            s.red = s.red | (1 << i);
+            prevchar = char;
+            i += 1;
+         } else if ('0123456789'.includes(char)) {
+            const num = parseInt(char);
+            for (let d = 1; d < num; d++) {
+               if (i < 25) {
+                  if (prevchar == 'R') {
+                     s.red = s.red | (1 << i);
+                  } else if (prevchar == 'B') {
+                     s.blue = s.blue | (1 << i);
+                  }
+               }
+               i += 1;
+            }
+         } else {
+            prevchar = 'W';
+            i += 1;
+         }
+      }
+   }
+   for (i = 0; i < 25; i++) {
+      if ((s.blue & neighbors[i]!) == neighbors[i]) {
+         s.bluedef = s.bluedef | (1 << i);
+      }
+      if ((s.red & neighbors[i]!) == neighbors[i]) {
+         s.reddef = s.reddef | (1 << i);
+      }
+   }
+   return s;
+}
+
+export function centroid(map: number) {
+   map &= BOARD_MASK;
+   if (map === 0) return new Vector(2, 2);
+   let cnt = 0,
+      ysum = 0,
+      xsum = 0;
+   while (map) {
+      const lsb = map & -map;
+      const i = 31 - Math.clz32(lsb);
+      ysum += i % 5;
+      xsum += (i / 5) | 0; //fast floor
+      cnt++;
+      map ^= lsb;
+   }
+   return new Vector(xsum / cnt, ysum / cnt);
 }

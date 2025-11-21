@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Player, Score } from '../player';
+import { Player } from '../player';
+import { convertBoardScore, Score } from '../board';
 import { roundTo } from '../util';
 
 describe('Player.evaluatePos', async () => {
@@ -11,10 +12,10 @@ describe('Player.evaluatePos', async () => {
    const p = new Player(undefined, undefined, wordList);
    p.possible(letters);
 
-   let s = p.convertBoardScore('BbbBBbwwbBwwwwbwbwwwwwwww'.toUpperCase());
-   console.log(p.cache[letters][2])
-   console.log(p.cache[letters][3])
+   const s: Score = convertBoardScore('BbbBBbwwbBwwwwbwbwwwwwwww'.toUpperCase());
+   console.log(p.cache[letters][2]);
+   console.log(p.cache[letters][3]);
    it('evaluatePos: ', () => {
-      expect(roundTo(p.evaluatePos(letters, s),3)).toEqual(35.385);
+      expect(roundTo(p.evaluatePos(letters, s), 3)).toEqual(35.385);
    });
 });

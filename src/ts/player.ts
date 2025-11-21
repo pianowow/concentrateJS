@@ -1,5 +1,13 @@
-import { roundTo, assert } from './util';
-import { neighbors } from './board';
+import { roundTo, assert, Vector, vectorDiff, packKey, unpackKey } from './util';
+import {
+   neighbors,
+   BOARD_MASK,
+   bitCount,
+   defendedMap,
+   centroid,
+   Score,
+   convertBoardScore,
+} from './board';
 
 class Difficulty {
    listsize: string;
@@ -29,28 +37,6 @@ class Weights {
    }
 }
 
-export class Score {
-   blue: number;
-   red: number;
-   bluedef: number;
-   reddef: number;
-   constructor(blue = 0, red = 0, bluedef = 0, reddef = 0) {
-      this.blue = blue;
-      this.red = red;
-      this.bluedef = bluedef;
-      this.reddef = reddef;
-   }
-}
-
-class Vector {
-   x: number = 2;
-   y: number = 2;
-   constructor(x = 2, y = 2) {
-      this.x = x;
-      this.y = y;
-   }
-}
-
 export class Play {
    score: number = 0;
    word: string = '';
@@ -74,8 +60,6 @@ export class Player {
    cache;
    hashtable;
    wordList: string[];
-
-   private readonly BOARD_MASK: number = (1 << 25) - 1;
 
    constructor(
       difficulty = new Difficulty('A', 5, 25, 'S'),
@@ -289,16 +273,6 @@ export class Player {
             }
          }
          const prefix = prefixBlocked.has(word) ? true : false;
-         if (prefix) {
-            console.log(
-               'word blocked: ' +
-                  word +
-                  ' prefix set: ' +
-                  JSON.stringify(prefixBlocked) +
-                  ' word list: ' +
-                  JSON.stringify(this.cache[allLetters][1])
-            );
-         }
          if (ok && anyHas && !anyMatch) ok = false;
          if (ok && prefix) ok = false;
          if (ok) out.push(word);
@@ -307,51 +281,6 @@ export class Player {
          touched.length = 0;
       }
       return out;
-   }
-
-   // TODO: move to board.js
-   convertBoardScore(scoreString: string) {
-      // produces bitmaps from a string of characters representing the colors
-      let i = 0;
-      let prevchar = 'W';
-      const s = new Score();
-      for (const char of scoreString) {
-         if (i < 25) {
-            if (char == 'B') {
-               s.blue = s.blue | (1 << i);
-               prevchar = char;
-               i += 1;
-            } else if (char == 'R') {
-               s.red = s.red | (1 << i);
-               prevchar = char;
-               i += 1;
-            } else if ('0123456789'.includes(char)) {
-               const num = parseInt(char);
-               for (let d = 1; d < num; d++) {
-                  if (i < 25) {
-                     if (prevchar == 'R') {
-                        s.red = s.red | (1 << i);
-                     } else if (prevchar == 'B') {
-                        s.blue = s.blue | (1 << i);
-                     }
-                  }
-                  i += 1;
-               }
-            } else {
-               prevchar = 'W';
-               i += 1;
-            }
-         }
-      }
-      for (i = 0; i < 25; i++) {
-         if ((s.blue & this.neighbors[i]!) == this.neighbors[i]) {
-            s.bluedef = s.bluedef | (1 << i);
-         }
-         if ((s.red & this.neighbors[i]!) == this.neighbors[i]) {
-            s.reddef = s.reddef | (1 << i);
-         }
-      }
-      return s;
    }
 
    // TODO: move to util.js
@@ -380,42 +309,21 @@ export class Player {
       yield* rec(0, 0);
    }
 
-   // TODO: move to board.js
-   centroid(map: number) {
-      map &= this.BOARD_MASK;
-      if (map === 0) return new Vector(2, 2);
-      let cnt = 0,
-         ysum = 0,
-         xsum = 0;
-      while (map) {
-         const lsb = map & -map;
-         const i = 31 - Math.clz32(lsb);
-         ysum += i % 5;
-         xsum += (i / 5) | 0; //fast floor
-         cnt++;
-         map ^= lsb;
-      }
-      return new Vector(xsum / cnt, ysum / cnt);
-   }
-
-   // TODO: move to util.js
-   vectorDiff = (v1: Vector, v2: Vector) => Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2);
-
    goalValue(goal: number, blue: number, red: number, move: number) {
       // letter popularity reduced the strength of the engine
       // centroid is more important
       let playerVector = new Vector();
-      const goalVector = this.centroid(goal);
+      const goalVector = centroid(goal);
       if (move == 1) {
          if (blue > 0) {
-            playerVector = this.centroid(blue);
+            playerVector = centroid(blue);
          }
       } else {
          if (red > 0) {
-            playerVector = this.centroid(red);
+            playerVector = centroid(red);
          }
       }
-      return this.vectorDiff(playerVector, goalVector);
+      return vectorDiff(playerVector, goalVector);
    }
 
    computeGoal(allLetters: string, blue: number, red: number, move: number) {
@@ -497,25 +405,10 @@ export class Player {
       return wordGroups;
    }
 
-   /**
-    * Returns number of set bits of a number
-    * ex.: 5 is 101 in binary, so it would return 2 for the two set 1s.
-    * Kerninghan's algorithm
-    */
-   private bitCount(n: number): number {
-      let c = 0;
-      n |= 0; //ensure 32-bit
-      while (n) {
-         n &= n - 1;
-         c++;
-      }
-      return c;
-   }
-
    evaluatePos(allLetters: string, s: Score) {
       // returns a number indicating who is winning, and by how much.  positive, blue; negative, red.
       // TODO: the Python version memoized this method with a hash table
-      const ending = this.bitCount((s.blue | s.red) & this.BOARD_MASK) == 25;
+      const ending = bitCount((s.blue | s.red) & BOARD_MASK) == 25;
       let total = 0;
       if (!ending) {
          // TODO: refactor to avoid magic numbers 2 and 3
@@ -524,14 +417,14 @@ export class Player {
          const n = this.neighbors;
          let blueScore = 0,
             redScore = 0;
-         let sm = s.blue & this.BOARD_MASK;
+         let sm = s.blue & BOARD_MASK;
          while (sm) {
             const lsb = sm & -sm;
             const i = 31 - Math.clz32(lsb);
             blueScore += (s.blue & n[i]!) === n[i] ? d[i]! : u[i]!;
             sm ^= lsb;
          }
-         sm = s.red & this.BOARD_MASK;
+         sm = s.red & BOARD_MASK;
          while (sm) {
             const lsb = sm & -sm;
             const i = 31 - Math.clz32(lsb);
@@ -540,25 +433,16 @@ export class Player {
          }
 
          // bonus for being away from the zero letters
-         const blueCenter = this.centroid(s.blue);
-         const redCenter = this.centroid(s.red);
-         const zeroCenter = this.centroid(~(s.red | s.blue));
-         const blueDiff = this.vectorDiff(blueCenter, zeroCenter);
-         const redDiff = this.vectorDiff(redCenter, zeroCenter);
+         const blueCenter = centroid(s.blue);
+         const redCenter = centroid(s.red);
+         const zeroCenter = centroid(~(s.red | s.blue));
+         const blueDiff = vectorDiff(blueCenter, zeroCenter);
+         const redDiff = vectorDiff(redCenter, zeroCenter);
          total = blueScore - redScore + this.weights.mw * (blueDiff - redDiff);
       } else {
-         total =
-            (this.bitCount(s.blue & this.BOARD_MASK) - this.bitCount(s.red & this.BOARD_MASK)) *
-            1000;
+         total = (bitCount(s.blue & BOARD_MASK) - bitCount(s.red & BOARD_MASK)) * 1000;
       }
       return total;
-   }
-
-   packKey(blue: number, red: number) {
-      return blue * 2 ** 25 + red;
-   }
-   unpackKey(key: number) {
-      return [Math.floor(key / 2 ** 25), key % 2 ** 25];
    }
 
    arrange(
@@ -628,18 +512,18 @@ export class Player {
       const gLen = groups.length;
       function combine(this: Player, groupIdx: number, accMask: number) {
          if (groupIdx === gLen) {
-            const playMask = accMask & this.BOARD_MASK;
+            const playMask = accMask & BOARD_MASK;
             // Apply allowed positions in one shot (skip defended cells)
             if (move === 1) {
                const allowed = playMask & ~s.reddef;
-               tempScore.blue = (oldBlue | allowed) & this.BOARD_MASK;
-               tempScore.red = oldRed & ~allowed & this.BOARD_MASK;
+               tempScore.blue = (oldBlue | allowed) & BOARD_MASK;
+               tempScore.red = oldRed & ~allowed & BOARD_MASK;
             } else {
                const allowed = playMask & ~s.bluedef;
-               tempScore.blue = oldBlue & ~allowed & this.BOARD_MASK;
-               tempScore.red = (oldRed | allowed) & this.BOARD_MASK;
+               tempScore.blue = oldBlue & ~allowed & BOARD_MASK;
+               tempScore.red = (oldRed | allowed) & BOARD_MASK;
             }
-            const key = this.packKey(tempScore.blue, tempScore.red);
+            const key = packKey(tempScore.blue, tempScore.red);
             if (!scores.has(key)) {
                const val = this.evaluatePos(allLetters, tempScore);
                scores.set(key, val);
@@ -742,7 +626,7 @@ export class Player {
    ) {
       // judges the merits of possible plays for this board
       allLetters = allLetters.toUpperCase();
-      const s: Score = this.convertBoardScore(score);
+      const s: Score = convertBoardScore(score);
       let targets = 0;
       if (move == 1) {
          targets = (s.red & ~s.reddef) | (~s.blue & ~s.red);
@@ -799,7 +683,7 @@ export class Player {
          for (const [position, score] of scores) {
             const playscore = roundTo(score, 3);
             for (const word of wordGroups[group]!) {
-               [blue, red] = this.unpackKey(position);
+               [blue, red] = unpackKey(position);
                plays.push(new Play(playscore, word, blue, red));
             }
          }
@@ -879,25 +763,14 @@ export class Player {
       return plays;
    }
 
-   defendedMap(posmap: number): number {
-      const n = this.neighbors;
-      let defmap = 0;
-      for (let i = 0; i < 25; i++) {
-         if ((posmap & n[i]!) == n[i]) {
-            defmap = defmap | (1 << i);
-         }
-      }
-      return defmap;
-   }
-
    endgameCheck(allLetters: string, blue: number, red: number, move: number) {
       //called by interface to check a page of search results at a time
       //purpose: an extra depth of search to check if a play loses or forces the end soon
       let zeroletters = '';
       const zeros = ~blue & ~red;
       let anyl = '';
-      const bluedef = this.defendedMap(blue);
-      const reddef = this.defendedMap(red);
+      const bluedef = defendedMap(blue);
+      const reddef = defendedMap(red);
       let targets = 0;
       if (move == 1) {
          targets = (blue & ~bluedef) | zeros;
@@ -963,7 +836,7 @@ export class Player {
    unplayword(allletters: string, word: string) {
       const idx = this.cache[allletters][1].indexOf(word);
       if (idx !== -1) {
-         this.cache[allletters][1].splice(word, 1);
+         this.cache[allletters][1].splice(idx, 1);
       }
    }
 }

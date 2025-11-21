@@ -21,3 +21,30 @@ export function assert(condition: boolean, message = 'Assertion failed') {
       throw new Error(message);
    }
 }
+
+export class Vector {
+   x: number = 2;
+   y: number = 2;
+   constructor(x = 2, y = 2) {
+      this.x = x;
+      this.y = y;
+   }
+}
+
+export function vectorDiff(v1: Vector, v2: Vector) {
+   return Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2);
+}
+
+/**
+ *  Packs two (at most 25 bit) numbers into a single key for use in a Map.
+ */
+export function packKey(n1: number, n2: number) {
+   return n1 * 2 ** 25 + n2;
+}
+
+/**
+ * Unpacks two (at most 25 bit) numbers from a given Map key
+ */
+export function unpackKey(key: number) {
+   return [Math.floor(key / 2 ** 25), key % 2 ** 25];
+}

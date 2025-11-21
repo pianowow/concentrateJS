@@ -1,8 +1,7 @@
 // Tests for player.endgameCheck
 import { describe, it, expect } from 'vitest';
-import { Player } from '../player.js';
-const player = new Player();
-describe('Player.defendedMap', () => {
+import { defendedMap } from '../board';
+describe('defendedMap', () => {
    const cases: [number, number][] = [
       [0, 0],
       [33554431, 33554431],
@@ -26,7 +25,7 @@ describe('Player.defendedMap', () => {
 
    for (const [input, output] of cases) {
       it(`returns ${output} for input ${input}`, () => {
-         expect(player.defendedMap(input)).toBe(output);
+         expect(defendedMap(input)).toBe(output);
       });
    }
 });

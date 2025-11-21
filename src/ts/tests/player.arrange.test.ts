@@ -1,6 +1,7 @@
 // Tests for player.arrange
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Player } from '../player';
+import { convertBoardScore } from '../board';
 let player;
 const letters = 'CONCENTRATEFORLETTERPRESS';
 const colors = 'B5B5BW3RR5R5';
@@ -13,7 +14,7 @@ beforeAll(async () => {
    const wordList = text.split(/\r?\n/);
    player = new Player(undefined, undefined, wordList);
    player.concentrate(letters, '', '', '');
-   const s = player.convertBoardScore(colors);
+   const s = convertBoardScore(colors);
    player.arrange(letters, word, s, scores);
    console.log(scores);
 });

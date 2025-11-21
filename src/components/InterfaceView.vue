@@ -3,8 +3,8 @@
    import BoardGrid from './BoardGrid.vue';
    import SearchResults from './SearchResults.vue';
    import HistoryTable from './HistoryTable.vue';
-   import { Player, Play, Score } from '../ts/player';
-   import { LightColorTheme, mapsToColors } from '../ts/board';
+   import { Player, Play } from '../ts/player';
+   import { LightColorTheme, mapsToColors, Score, convertBoardScore } from '../ts/board';
    import { roundTo } from '../ts/util';
 
    const theme = shallowRef(markRaw(new LightColorTheme()));
@@ -143,8 +143,8 @@
          if (player.value) {
             player.value.possible(boardLettersUpperCase.value);
             for (const h of historyList.value) {
-               const s: Score = player.value.convertBoardScore(h.colors.toUpperCase());
-               h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
+               const s: Score = convertBoardScore(h.colors.toUpperCase());
+               h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
             }
             const played = historyList.value.slice(1, index + 1).map((a) => a.text);
             player.value.resetplayed(boardLettersUpperCase.value, played);
@@ -192,7 +192,7 @@
       let score = 0;
       if (player.value) {
          player.value.possible(boardLettersUpperCase.value);
-         let s: Score = player.value.convertBoardScore(boardColorsDefended.value);
+         let s: Score = convertBoardScore(boardColorsDefended.value);
          score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
       }
       historyList.value.push(
