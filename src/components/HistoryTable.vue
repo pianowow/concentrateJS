@@ -2,7 +2,7 @@
    // Component: HistoryTable
    import { ref, toRefs, computed, watch } from 'vue';
    import BoardGrid from './BoardGrid.vue';
-   import type { LightColorTheme } from '../ts/board';
+   import type { ThemeConfig } from '../ts/board';
 
    interface HistoryItem {
       type: number; // 1 blue, -1 red, 0 initial
@@ -14,7 +14,7 @@
    const props = defineProps<{
       historyList: HistoryItem[];
       boardLetters: string;
-      theme: LightColorTheme;
+      theme: ThemeConfig;
       boardPreviewCellSize: number;
       selectedIndex: number | null;
    }>();
@@ -164,7 +164,4 @@
    </div>
 </template>
 
-<style>
-   /* Reuse global styles from SearchResults.vue: .table-container, .results-table, .pager, etc. */
-   /* HistoryTable-specific styles can be added here if needed. */
-</style>
+<style></style>

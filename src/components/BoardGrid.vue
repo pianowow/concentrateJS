@@ -35,18 +35,26 @@
 <style>
    .b {
       background-color: v-bind('props.theme.blue');
+      color: v-bind('props.theme.blueText');
    }
    .B {
       background-color: v-bind('props.theme.defendedBlue');
+      color: v-bind('props.theme.defendedBlueText');
    }
    .r {
       background-color: v-bind('props.theme.red');
+      color: v-bind('props.theme.redText');
    }
    .R {
       background-color: v-bind('props.theme.defendedRed');
+      color: v-bind('props.theme.defendedRedText');
    }
-   .W,
    .w {
       background-color: v-bind('props.theme.defaultColor');
+      color: v-bind('props.theme.defaultText');
+   }
+   .board-wrapper > .row:nth-child(odd) > .letter.w:nth-child(even),
+   .board-wrapper > .row:nth-child(even) > .letter.w:nth-child(odd) {
+      background-color: v-bind('props.theme.defaultColor2');
    }
 </style>

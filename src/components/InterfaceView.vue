@@ -4,10 +4,28 @@
    import SearchResults from './SearchResults.vue';
    import HistoryTable from './HistoryTable.vue';
    import { Player, Play } from '../ts/player';
-   import { LightColorTheme, mapsToColors, Score, convertBoardScore } from '../ts/board';
+   import {
+      type ThemeName,
+      type ThemeConfig,
+      Themes,
+      mapsToColors,
+      Score,
+      convertBoardScore,
+   } from '../ts/board';
    import { roundTo } from '../ts/util';
 
-   const theme = shallowRef(markRaw(new LightColorTheme()));
+   const themes = new Themes();
+   const themeSelected = ref<ThemeName>('Light');
+   const theme = computed<ThemeConfig>(() => themes[themeSelected.value]);
+   watch(
+      theme,
+      (t) => {
+         document.body.style.backgroundColor = t.defaultColor;
+         document.body.style.color = t.defaultText;
+      },
+      { immediate: true }
+   );
+   const availableThemes = Object.keys(themes) as ThemeName[];
    class HistoryEntry {
       type: number; //1 blue, -1 red, 0 initial position
       text: string; //word played or board letters
@@ -174,6 +192,8 @@
    const DEBOUNCE_MS = 400;
 
    onMounted(async () => {
+      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+      themeSelected.value = prefersDark ? 'Dark' : 'Light';
       let wordList: string[] = await getWordList();
       player.value = markRaw(new Player(undefined, undefined, wordList));
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
@@ -318,7 +338,12 @@
                Edit Board
             </button>
             <div class="board-input" v-show="showBoardEdit">
-               <h4>Note: changing board or color will clear history</h4>
+               <div class="input-div">
+                  <label for="theme-input">Theme</label>
+                  <select id="theme-input" class="input" v-model="themeSelected">
+                     <option v-for="t in availableThemes" :key="t" :value="t">{{ t }}</option>
+                  </select>
+               </div>
                <div class="input-div">
                   <label for="turn-input">Turn</label>
                   <select
@@ -327,10 +352,11 @@
                      v-model.number="moveIndicator"
                      @change="syncState()"
                   >
-                     <option :value="1">Blue to play</option>
-                     <option :value="-1">Red to play</option>
+                     <option :value="1">{{ theme.blueName }} to play</option>
+                     <option :value="-1">{{ theme.redName }} to play</option>
                   </select>
                </div>
+               <h4>Note: changing board or color will clear history</h4>
                <div class="input-div">
                   <label for="board-input">Board</label>
                   <input
@@ -435,6 +461,8 @@
    .layout {
       display: flex;
       height: 100dvh;
+      width: 1100px;
+      margin: 0 auto;
       gap: 8px;
       padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
          max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
@@ -466,6 +494,8 @@
       box-sizing: border-box;
       display: inline-block;
       padding: 2px 2px;
+      background-color: v-bind('theme.defaultColor2');
+      color: v-bind('theme.defaultText');
       height: 25px;
       font: inherit;
       border: 1px solid;
@@ -500,8 +530,7 @@
       width: 14px;
       height: 14px;
       border-radius: 3px;
-      border: 1px solid rgba(0, 0, 0, 0.25);
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+      border: 1px solid v-bind('theme.defaultText');
    }
    .filters-section {
       display: flex;
@@ -511,6 +540,7 @@
    }
    .filters-toggle {
       background: transparent;
+      color: v-bind('theme.defaultText');
       border: none;
       font: inherit;
       align-items: center;
@@ -538,13 +568,109 @@
       flex: 1 1 auto;
       min-height: 0;
    }
-   .results-table tbody tr.selected {
-      background: #e3f1ff;
+   .results-grid {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
    }
-   @media (max-width: 900px) {
+   .pager {
+      display: flex;
+      gap: 20px;
+      justify-content: right;
+   }
+   .pager-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+   }
+   .pager-select {
+      border: 1px solid v-bind('theme.defaultColor2');
+      background: v-bind('theme.defaultColor2');
+      color: v-bind('theme.defaultText');
+      border-radius: 4px;
+      padding: 2px 6px;
+      font: inherit;
+   }
+   .pager button {
+      color: v-bind('theme.defaultText');
+   }
+   /* Scroll container provides the scrollbar and outer border */
+   .table-container {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 1px solid v-bind('theme.defaultText');
+      border-radius: 6px;
+      scrollbar-color: v-bind('theme.defaultText') transparent;
+   }
+   /* Table styling to mimic ag-grid header and column separators */
+   .results-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+   }
+   .results-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: v-bind('theme.blue');
+      color: v-bind('theme.defaultText');
+      font-weight: 600;
+      padding: 8px 10px;
+      border-right: 1px solid v-bind('theme.defaultText');
+      border-bottom: 1px solid v-bind('theme.defaultText');
+      white-space: nowrap;
+   }
+   .results-table thead th:last-child {
+      border-right: none;
+   }
+   .results-table tbody td {
+      padding: 6px 8px;
+      /*      border-right: 1px solid #eee;
+      border-bottom: 1px solid #eee; */
+      vertical-align: middle;
+   }
+   .results-table tbody td button {
+      background: transparent;
+      color: v-bind('theme.defaultText');
+      cursor: pointer;
+   }
+   .results-table tbody td:last-child {
+      border-right: none;
+   }
+   .results-table tbody tr {
+      background: v-bind('theme.defaultColor');
+   }
+   .results-table tbody tr:nth-child(even) {
+      background: v-bind('theme.defaultColor2');
+   }
+   .results-table td:nth-child(3) {
+      padding: 4px;
+   }
+   .pager button {
+      border: none;
+      background: transparent;
+      padding: 4px 4px;
+      cursor: pointer;
+   }
+   .pager button:disabled {
+      opacity: 0.6;
+      cursor: default;
+   }
+   .results-table tbody tr.selected {
+      background: v-bind('theme.blue');
+   }
+   @media (max-width: 1100px) {
+      .results-grid {
+         flex: 0 0 auto;
+         height: 420px;
+      }
       .layout {
          flex-direction: column;
          height: auto;
+         width: 500px;
       }
       .left-pane {
          width: 100%;

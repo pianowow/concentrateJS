@@ -1,14 +1,14 @@
 <script setup lang="ts">
    import { ref, toRefs, computed, watch } from 'vue';
    import type { Player, Play } from '../ts/player';
-   import type { LightColorTheme } from '../ts/board';
+   import type { ThemeConfig } from '../ts/board';
    import { mapsToColors } from '../ts/board';
    import BoardGrid from './BoardGrid.vue';
 
    const props = defineProps<{
       boardLetters: string;
       player: Player | null;
-      theme: LightColorTheme;
+      theme: ThemeConfig;
       searchResults: Play[];
       boardPreviewCellSize: number;
       move: number;
@@ -187,93 +187,4 @@
    </div>
 </template>
 
-<style>
-   .results-grid {
-      flex: 1 1 auto;
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-   }
-   .pager {
-      display: flex;
-      gap: 20px;
-      justify-content: right;
-   }
-   .pager-right {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-   }
-   .pager-select {
-      border: 1px solid #c7cbd1;
-      background: #f8f9fb;
-      border-radius: 4px;
-      padding: 2px 6px;
-      font: inherit;
-   }
-   /* Scroll container provides the scrollbar and outer border */
-   .table-container {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: auto;
-      border: 1px solid #d6dae0;
-      border-radius: 6px;
-      background: #fff;
-   }
-   /* Table styling to mimic ag-grid header and column separators */
-   .results-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-   }
-   .results-table thead th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      background: #f5f7fa;
-      color: #2c3e50;
-      font-weight: 600;
-      padding: 8px 10px;
-      border-right: 1px solid #e0e3e7;
-      border-bottom: 1px solid #d6dae0;
-      white-space: nowrap;
-   }
-   .results-table thead th:last-child {
-      border-right: none;
-   }
-   .results-table tbody td {
-      padding: 6px 8px;
-      border-right: 1px solid #eee;
-      border-bottom: 1px solid #eee;
-      vertical-align: middle;
-   }
-   .results-table tbody td:last-child {
-      border-right: none;
-   }
-   .results-table tbody tr:hover {
-      background: #f7fbff;
-   }
-   .results-table tbody tr:nth-child(even) {
-      background: #fafafa;
-   }
-   .results-table td:nth-child(3) {
-      padding: 4px;
-   }
-   .pager button {
-      border: none;
-      background: transparent;
-      padding: 4px 4px;
-      cursor: pointer;
-   }
-   .pager button:disabled {
-      opacity: 0.6;
-      cursor: default;
-   }
-   @media (max-width: 900px) {
-      .results-grid {
-         flex: 0 0 auto;
-         height: 420px;
-      }
-   }
-</style>
+<style></style>
