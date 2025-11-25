@@ -219,13 +219,13 @@ export function convertBoardScore(scoreString: string) {
    const s = new Score();
    for (const char of scoreString) {
       if (i < 25) {
-         if (char == 'B') {
+         if (char == 'B' || char == 'b') {
             s.blue = s.blue | (1 << i);
-            prevchar = char;
+            prevchar = 'B';
             i += 1;
-         } else if (char == 'R') {
+         } else if (char == 'R' || char == 'r') {
             s.red = s.red | (1 << i);
-            prevchar = char;
+            prevchar = 'R';
             i += 1;
          } else if ('0123456789'.includes(char)) {
             const num = parseInt(char);
@@ -245,14 +245,8 @@ export function convertBoardScore(scoreString: string) {
          }
       }
    }
-   for (i = 0; i < 25; i++) {
-      if ((s.blue & neighbors[i]!) == neighbors[i]) {
-         s.bluedef = s.bluedef | (1 << i);
-      }
-      if ((s.red & neighbors[i]!) == neighbors[i]) {
-         s.reddef = s.reddef | (1 << i);
-      }
-   }
+   s.bluedef = defendedMap(s.blue);
+   s.reddef = defendedMap(s.red);
    return s;
 }
 
