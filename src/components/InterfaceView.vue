@@ -39,6 +39,7 @@
       }
    }
    const showBoardEdit = ref(false);
+   const showSettings = ref(false);
    const moveIndicator = ref<number>(1);
    const boardLetters = ref('');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
@@ -318,11 +319,31 @@
 </script>
 
 <template>
+   <!-- Settings Modal -->
+   <div v-if="showSettings" class="modal-overlay" @click.self="showSettings = false">
+      <div class="modal-content">
+         <div class="modal-header">
+            <h2>Settings</h2>
+            <button class="modal-close" @click="showSettings = false" aria-label="Close">
+               &times;
+            </button>
+         </div>
+         <div class="modal-body">
+            <div class="input-div">
+               <label for="settings-theme-input">Theme</label>
+               <select id="settings-theme-input" class="input" v-model="themeSelected">
+                  <option v-for="t in availableThemes" :key="t" :value="t">{{ t }}</option>
+               </select>
+            </div>
+         </div>
+      </div>
+   </div>
+
    <div class="layout">
       <aside class="menu-pane">
          <h2 class="app-title">Concentrate</h2>
          <nav class="menu-links">
-            <a class="menu-link">Settings</a>
+            <a class="menu-link" @click="showSettings = true">Settings</a>
          </nav>
       </aside>
       <div class="columns">
@@ -345,12 +366,6 @@
                   Edit Board
                </button>
                <div class="board-input" v-show="showBoardEdit">
-                  <div class="input-div">
-                     <label for="theme-input">Theme</label>
-                     <select id="theme-input" class="input" v-model="themeSelected">
-                        <option v-for="t in availableThemes" :key="t" :value="t">{{ t }}</option>
-                     </select>
-                  </div>
                   <div class="input-div">
                      <label for="turn-input">Turn</label>
                      <select
@@ -696,6 +711,56 @@
    .results-table tbody tr.selected {
       background: v-bind('theme.blue');
    }
+   /* Modal styles */
+   .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+   }
+   .modal-content {
+      background: v-bind('theme.defaultColor');
+      color: v-bind('theme.defaultText');
+      border: 1px solid v-bind('theme.defaultText');
+      border-radius: 8px;
+      padding: 20px;
+      min-width: 300px;
+      max-width: 90vw;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+   }
+   .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+   }
+   .modal-header h2 {
+      margin: 0;
+   }
+   .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: v-bind('theme.defaultText');
+      padding: 0 4px;
+      line-height: 1;
+   }
+   .modal-close:hover {
+      opacity: 0.7;
+   }
+   .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+   }
+
    @media (max-width: 1150px) {
       .menu-pane {
          width: 100%;
