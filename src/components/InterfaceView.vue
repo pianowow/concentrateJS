@@ -1,5 +1,14 @@
 <script setup lang="ts">
-   import { ref, type Ref, shallowRef, markRaw, onMounted, computed, watch } from 'vue';
+   import {
+      ref,
+      type Ref,
+      shallowRef,
+      markRaw,
+      onMounted,
+      onUnmounted,
+      computed,
+      watch,
+   } from 'vue';
    import BoardGrid from './BoardGrid.vue';
    import SearchResults from './SearchResults.vue';
    import HistoryTable from './HistoryTable.vue';
@@ -25,6 +34,9 @@
       },
       { immediate: true }
    );
+   watch(themeSelected, () => {
+      saveToLocalStorage();
+   });
    const availableThemes = Object.keys(themes) as ThemeName[];
    class HistoryEntry {
       type: number; //1 blue, -1 red, 0 initial position
@@ -122,9 +134,244 @@
    const searchResults: Ref<Play[]> = shallowRef<Play[]>([]);
    let player: Ref<Player | null> = shallowRef<Player | null>(null);
    const boardPreviewCellSize = 9;
+   const isMobile = ref(false);
+   const navPreviewCellSize = computed(() => (isMobile.value ? 9 : 25));
 
-   function readQueryParams() {
+   function updateIsMobile() {
+      isMobile.value = window.innerWidth <= 1150;
+   }
+   const LOCAL_STORAGE_KEY = 'concentrate-state';
+   const games: Ref<StoredGameState[]> = ref([]);
+   const selectedGameId: Ref<string | null> = ref(null);
+   const draggedGameId: Ref<string | null> = ref(null);
+   const dragOverIndex: Ref<number | null> = ref(null);
+
+   const gamesDisplayOrder = computed(() => {
+      if (draggedGameId.value === null || dragOverIndex.value === null) {
+         return games.value;
+      }
+      const fromIdx = games.value.findIndex((g) => g.id === draggedGameId.value);
+      if (fromIdx === -1 || fromIdx === dragOverIndex.value) {
+         return games.value;
+      }
+      const reordered = [...games.value];
+      const [movedGame] = reordered.splice(fromIdx, 1);
+      reordered.splice(dragOverIndex.value, 0, movedGame!);
+      return reordered;
+   });
+
+   interface StoredGameState {
+      historyList: HistoryEntry[];
+      selectedHistoryIndex: number | null;
+      moveIndicator: number;
+      id: string;
+      createdAt: number;
+   }
+
+   interface AppState {
+      theme: ThemeName;
+      games: StoredGameState[];
+      selectedGameId: string | null;
+   }
+
+   function generateGameId(): string {
+      return `game-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+   }
+
+   function updateCurrentGameInArray() {
+      if (!selectedGameId.value) return;
+      const idx = games.value.findIndex((g) => g.id === selectedGameId.value);
+      if (idx !== -1) {
+         games.value[idx] = {
+            ...games.value[idx]!,
+            historyList: historyList.value,
+            selectedHistoryIndex: selectedHistoryIndex.value,
+            moveIndicator: moveIndicator.value,
+         };
+      }
+   }
+
+   function saveToLocalStorage() {
+      updateCurrentGameInArray();
+      const state: AppState = {
+         theme: themeSelected.value,
+         games: games.value,
+         selectedGameId: selectedGameId.value,
+      };
+      try {
+         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+         console.warn('Failed to save state to local storage:', e);
+      }
+   }
+
+   function loadFromLocalStorage(): AppState | null {
+      try {
+         const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+         if (stored) {
+            const parsed = JSON.parse(stored) as AppState;
+            // Validate the parsed data has expected structure
+            if (
+               Array.isArray(parsed.games) &&
+               parsed.games.length > 0 &&
+               typeof parsed.theme === 'string'
+            ) {
+               return parsed;
+            }
+         }
+      } catch (e) {
+         console.warn('Failed to load state from local storage:', e);
+      }
+      return null;
+   }
+
+   function getGameBoardLetters(game: StoredGameState): string {
+      const initial = game.historyList.find((h) => h.type === 0);
+      return initial?.text.toUpperCase() ?? '';
+   }
+
+   function getGameCurrentColors(game: StoredGameState): string {
+      const idx = game.selectedHistoryIndex ?? game.historyList.length - 1;
+      return game.historyList[idx]?.colors ?? '';
+   }
+
+   function loadGameState(game: StoredGameState) {
+      historyList.value = game.historyList.map(
+         (h) => new HistoryEntry(h.type, h.text, h.colors, h.score)
+      );
+      selectedHistoryIndex.value = game.selectedHistoryIndex;
+      moveIndicator.value = game.moveIndicator;
+
+      // Extract board letters from initial history entry
+      const initialEntry = historyList.value[0];
+      if (initialEntry && initialEntry.type === 0) {
+         boardLetters.value = initialEntry.text.toUpperCase();
+      } else {
+         boardLetters.value = '';
+      }
+
+      // Set color letters from selected index or last entry
+      const idx = selectedHistoryIndex.value ?? historyList.value.length - 1;
+      if (historyList.value[idx]) {
+         colorLetters.value = historyList.value[idx]!.colors;
+      } else {
+         colorLetters.value = '';
+      }
+
+      // Show edit board section if board is incomplete
+      if (boardLetters.value.length !== 25) {
+         showBoardEdit.value = true;
+      } else {
+         showBoardEdit.value = false;
+      }
+
+      // Recalculate scores and reset player state
+      if (player.value) {
+         player.value.possible(boardLettersUpperCase.value);
+         for (const h of historyList.value) {
+            const s: Score = convertBoardScore(h.colors.toUpperCase());
+            h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
+         }
+         const played = historyList.value.slice(1, idx + 1).map((a) => a.text);
+         player.value.resetplayed(boardLettersUpperCase.value, played);
+      }
+   }
+
+   function selectGame(gameId: string) {
+      if (selectedGameId.value === gameId) return;
+      updateCurrentGameInArray();
+      const game = games.value.find((g) => g.id === gameId);
+      if (game) {
+         selectedGameId.value = gameId;
+         loadGameState(game);
+         saveToLocalStorage();
+         updateQueryParams();
+         runSearch();
+      }
+   }
+
+   function createNewGame(useDefault: boolean = false) {
+      updateCurrentGameInArray();
+      const newId = generateGameId();
+      const defaultBoard = useDefault ? 'CONCENTRATEFORLETTERPRESS' : '';
+      const defaultColors = useDefault ? 'BBBBBBWWWrrRRRRRBBBBBWWWrr' : '';
+      const newGame: StoredGameState = {
+         id: newId,
+         createdAt: Date.now(),
+         historyList: [new HistoryEntry(0, defaultBoard, defaultColors, 0)],
+         selectedHistoryIndex: null,
+         moveIndicator: 1,
+      };
+      games.value.push(newGame);
+      selectedGameId.value = newId;
+      loadGameState(newGame);
+      saveToLocalStorage();
+      updateQueryParams();
+      runSearch();
+   }
+
+   function onDragStart(gameId: string) {
+      draggedGameId.value = gameId;
+   }
+
+   function onDragOver(e: DragEvent, idx: number) {
+      e.preventDefault();
+      if (draggedGameId.value !== null) {
+         dragOverIndex.value = idx;
+      }
+   }
+
+   function onDrop(e: DragEvent) {
+      e.preventDefault();
+      if (draggedGameId.value === null || dragOverIndex.value === null) {
+         draggedGameId.value = null;
+         dragOverIndex.value = null;
+         return;
+      }
+
+      const fromIdx = games.value.findIndex((g) => g.id === draggedGameId.value);
+
+      if (fromIdx !== -1 && fromIdx !== dragOverIndex.value) {
+         const [movedGame] = games.value.splice(fromIdx, 1);
+         games.value.splice(dragOverIndex.value, 0, movedGame!);
+         saveToLocalStorage();
+      }
+
+      draggedGameId.value = null;
+      dragOverIndex.value = null;
+   }
+
+   function onDragEnd() {
+      draggedGameId.value = null;
+      dragOverIndex.value = null;
+   }
+
+   function deleteGame(gameId: string) {
+      const idx = games.value.findIndex((g) => g.id === gameId);
+      if (idx === -1) return;
+      games.value.splice(idx, 1);
+
+      if (selectedGameId.value === gameId) {
+         if (games.value.length > 0) {
+            // Select another game (prefer the one at same index, or last one)
+            const newIdx = Math.min(idx, games.value.length - 1);
+            const newGame = games.value[newIdx]!;
+            selectedGameId.value = newGame.id;
+            loadGameState(newGame);
+         } else {
+            // No games left, create a new default one
+            createNewGame();
+            return;
+         }
+      }
+      saveToLocalStorage();
+      updateQueryParams();
+      runSearch();
+   }
+
+   function readQueryParams(): string | null {
       const params = new URLSearchParams(window.location.search);
+      const gameId = params.get('id');
       const selected = params.get('selected');
       const rawHash = window.location.hash?.startsWith('#') ? window.location.hash.slice(1) : '';
       let index = 0;
@@ -168,16 +415,16 @@
             const played = historyList.value.slice(1, index + 1).map((a) => a.text);
             player.value.resetplayed(boardLettersUpperCase.value, played);
          }
+         return gameId;
       }
+      return null;
    }
 
    function updateQueryParams() {
       const params = new URLSearchParams();
+      if (selectedGameId.value) params.set('id', selectedGameId.value);
       if (selectedHistoryIndex.value !== null)
          params.set('selected', selectedHistoryIndex.value.toString());
-      //if (boardLetters.value) params.set('board', boardLettersUpperCase.value);
-      //if (colorLetters.value) params.set('colors', colorLettersUpperCase.value);
-      //if (moveIndicator.value) params.set('move', moveIndicator.value.toString());
       const historyFragment = historyList.value
          .map((h) => {
             const t = h.type === 1 ? 'b' : h.type === -1 ? 'r' : 'i';
@@ -193,17 +440,73 @@
    const DEBOUNCE_MS = 400;
 
    onMounted(async () => {
-      const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-      themeSelected.value = prefersDark ? 'Dark' : 'Light';
+      updateIsMobile();
+      window.addEventListener('resize', updateIsMobile);
+
       let wordList: string[] = await getWordList();
       player.value = markRaw(new Player(undefined, undefined, wordList));
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
-      readQueryParams();
-      if (!boardLetters.value) {
-         boardLetters.value = 'concentrateforletterpress';
-         colorLetters.value = 'b5b5bw3rr5r5';
-         clearHistory();
+
+      // Load app state from local storage
+      const storedState = loadFromLocalStorage();
+      if (storedState) {
+         themeSelected.value = storedState.theme;
+         games.value = storedState.games;
+         selectedGameId.value = storedState.selectedGameId;
+      } else {
+         // Set theme based on system preference
+         const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+         themeSelected.value = prefersDark ? 'Dark' : 'Light';
       }
+
+      // Check for URL params first (they override local storage)
+      const urlGameId = readQueryParams();
+
+      if (boardLetters.value) {
+         // URL had game data - check if game ID exists in storage
+         const existingGame = urlGameId ? games.value.find((g) => g.id === urlGameId) : null;
+         if (existingGame) {
+            // Update existing game with URL data
+            selectedGameId.value = urlGameId;
+            existingGame.historyList = historyList.value;
+            existingGame.selectedHistoryIndex = selectedHistoryIndex.value;
+            existingGame.moveIndicator = moveIndicator.value;
+         } else {
+            // Create new game from URL data
+            const newId = urlGameId || generateGameId();
+            const newGame: StoredGameState = {
+               id: newId,
+               createdAt: Date.now(),
+               historyList: historyList.value,
+               selectedHistoryIndex: selectedHistoryIndex.value,
+               moveIndicator: moveIndicator.value,
+            };
+            games.value.push(newGame);
+            selectedGameId.value = newId;
+         }
+      } else if (selectedGameId.value) {
+         // Load selected game from storage
+         const game = games.value.find((g) => g.id === selectedGameId.value);
+         if (game) {
+            loadGameState(game);
+         } else if (games.value.length > 0) {
+            // Selected game not found, load first game
+            selectedGameId.value = games.value[0]!.id;
+            loadGameState(games.value[0]!);
+         } else {
+            // First time user - create with default board
+            createNewGame(true);
+         }
+      } else if (games.value.length > 0) {
+         // No selection but games exist, select first
+         selectedGameId.value = games.value[0]!.id;
+         loadGameState(games.value[0]!);
+      } else {
+         // No games at all (first time user) - create with default board
+         createNewGame(true);
+      }
+
+      saveToLocalStorage();
       updateQueryParams();
       runSearch();
    });
@@ -229,6 +532,7 @@
 
    function syncState() {
       updateQueryParams();
+      saveToLocalStorage();
       if (searchDebounceHandle) {
          clearTimeout(searchDebounceHandle);
       }
@@ -314,8 +618,13 @@
          historyList.value.slice(1, idx + 1).map((a) => a.text)
       );
       updateQueryParams();
+      saveToLocalStorage();
       runSearch();
    }
+
+   onUnmounted(() => {
+      window.removeEventListener('resize', updateIsMobile);
+   });
 </script>
 
 <template>
@@ -345,6 +654,46 @@
          <nav class="menu-links">
             <a class="menu-link" @click="showSettings = true">Settings</a>
          </nav>
+         <div class="games-section">
+            <div class="games-header">
+               <h3>Games</h3>
+               <button class="new-game-btn" @click="createNewGame(false)" title="New Game">
+                  +
+               </button>
+            </div>
+            <div class="games-list">
+               <div
+                  v-for="(game, idx) in gamesDisplayOrder"
+                  :key="game.id"
+                  class="game-item"
+                  :class="{
+                     selected: game.id === selectedGameId,
+                     dragging: game.id === draggedGameId,
+                  }"
+                  draggable="true"
+                  @click="selectGame(game.id)"
+                  @dragstart="onDragStart(game.id)"
+                  @dragover="(e) => onDragOver(e, idx)"
+                  @drop="onDrop"
+                  @dragend="onDragEnd"
+               >
+                  <BoardGrid
+                     :letters="getGameBoardLetters(game)"
+                     :colors="getGameCurrentColors(game)"
+                     :theme="theme"
+                     :size="navPreviewCellSize"
+                  />
+                  <button
+                     class="delete-game-btn"
+                     @click.stop="deleteGame(game.id)"
+                     title="Delete game"
+                     v-if="games.length > 1"
+                  >
+                     &times;
+                  </button>
+               </div>
+            </div>
+         </div>
       </aside>
       <div class="columns">
          <div class="left-pane">
@@ -352,7 +701,7 @@
                :letters="boardLettersUpperCase"
                :colors="boardColorsDefended"
                :theme="theme"
-               :size="25"
+               :size="50"
             />
             <div class="board-edit">
                <button
@@ -526,6 +875,88 @@
    .menu-link:hover {
       text-decoration: underline;
       cursor: pointer;
+   }
+   .games-section {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+   }
+   .games-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+   }
+   .games-header h3 {
+      margin: 0;
+   }
+   .new-game-btn {
+      background: transparent;
+      border: 1px solid v-bind('theme.defaultText');
+      color: v-bind('theme.defaultText');
+      font-size: 18px;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+   }
+   .new-game-btn:hover {
+      background: v-bind('theme.defaultColor');
+   }
+   .games-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding-right: 4px;
+      scrollbar-color: v-bind('theme.defaultText') transparent;
+   }
+   .game-item {
+      position: relative;
+      padding: 6px;
+      border: 2px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+   }
+   .game-item:hover {
+      border-color: v-bind('theme.defaultText');
+   }
+   .game-item.selected {
+      border-color: v-bind('theme.blue');
+      background: v-bind('theme.defaultColor');
+   }
+   .game-item.dragging {
+      opacity: 0.6;
+      border-color: v-bind('theme.blue');
+   }
+   .delete-game-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: v-bind('theme.red');
+      border: none;
+      color: v-bind('theme.defaultText');
+      font-size: 14px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+   }
+   .game-item:hover .delete-game-btn {
+      display: flex;
    }
    .left-pane,
    .right-pane {
@@ -770,6 +1201,13 @@
          border-right: none;
          border: 1px solid v-bind('theme.defaultText');
          border-radius: 6px;
+      }
+      .games-list {
+         flex-direction: row;
+         overflow-x: auto;
+         overflow-y: hidden;
+         padding-right: 0;
+         padding-bottom: 4px;
       }
       .columns {
          width: 100%;

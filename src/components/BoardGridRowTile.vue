@@ -12,8 +12,7 @@
    .letter {
       width: v-bind(tileSize);
       height: v-bind(tileSize);
-      /* dynamic fontsize between 80% of the tile size (when it's tiny) and up to the standard 1em */
-      font-size: min(1em, calc(v-bind(tileSize) * 0.8));
+      font-size: calc(v-bind(tileSize) * 0.8);
       display: flex;
       justify-content: center;
       align-items: center;
