@@ -695,136 +695,134 @@
             </div>
          </div>
       </aside>
-      <div class="columns">
-         <div class="left-pane">
-            <BoardGrid
-               :letters="boardLettersUpperCase"
-               :colors="boardColorsDefended"
+      <div class="left-pane">
+         <BoardGrid
+            :letters="boardLettersUpperCase"
+            :colors="boardColorsDefended"
+            :theme="theme"
+            :size="50"
+         />
+         <div class="board-edit">
+            <button
+               title="click to show/hide"
+               class="filters-toggle"
+               type="button"
+               @click="showBoardEdit = !showBoardEdit"
+               :aria-expanded="showBoardEdit"
+               aria-controls="board-input"
+            >
+               Edit Board
+            </button>
+            <div class="board-input" v-show="showBoardEdit">
+               <div class="input-div">
+                  <label for="turn-input">Turn</label>
+                  <select
+                     id="turn-input"
+                     class="input"
+                     v-model.number="moveIndicator"
+                     @change="syncState()"
+                  >
+                     <option :value="1">{{ theme.blueName }} to play</option>
+                     <option :value="-1">{{ theme.redName }} to play</option>
+                  </select>
+               </div>
+               <h4>Note: changing board or color will clear history</h4>
+               <div class="input-div">
+                  <label for="board-input">Board</label>
+                  <input
+                     id="board-input"
+                     class="input uppercase"
+                     type="text"
+                     v-model="boardLetters"
+                     @input="clearHistorySyncState()"
+                     maxlength="25"
+                  />
+               </div>
+               <div class="input-div">
+                  <label for="color-input">Color</label>
+                  <input
+                     id="color-input"
+                     class="input uppercase"
+                     type="text"
+                     v-model="colorLetters"
+                     @input="clearHistorySyncState()"
+                     maxlength="25"
+                  />
+               </div>
+            </div>
+         </div>
+         <h3>History</h3>
+         <div class="history-grid">
+            <HistoryTable
+               :historyList="historyList"
+               :boardLetters="boardLettersUpperCase"
                :theme="theme"
-               :size="50"
+               :boardPreviewCellSize="boardPreviewCellSize"
+               :selectedIndex="selectedHistoryIndex"
+               @row-click="onHistoryRowClicked"
             />
-            <div class="board-edit">
+         </div>
+      </div>
+      <div class="right-pane">
+         <h3>Search Results</h3>
+         <div class="filters-section">
+            <div class="filters-header">
                <button
                   title="click to show/hide"
                   class="filters-toggle"
                   type="button"
-                  @click="showBoardEdit = !showBoardEdit"
-                  :aria-expanded="showBoardEdit"
-                  aria-controls="board-input"
+                  @click="showSearchFilters = !showSearchFilters"
+                  :aria-expanded="showSearchFilters"
+                  aria-controls="filters-panel"
                >
-                  Edit Board
+                  Filters
                </button>
-               <div class="board-input" v-show="showBoardEdit">
-                  <div class="input-div">
-                     <label for="turn-input">Turn</label>
-                     <select
-                        id="turn-input"
-                        class="input"
-                        v-model.number="moveIndicator"
-                        @change="syncState()"
-                     >
-                        <option :value="1">{{ theme.blueName }} to play</option>
-                        <option :value="-1">{{ theme.redName }} to play</option>
-                     </select>
-                  </div>
-                  <h4>Note: changing board or color will clear history</h4>
-                  <div class="input-div">
-                     <label for="board-input">Board</label>
-                     <input
-                        id="board-input"
-                        class="input uppercase"
-                        type="text"
-                        v-model="boardLetters"
-                        @input="clearHistorySyncState()"
-                        maxlength="25"
-                     />
-                  </div>
-                  <div class="input-div">
-                     <label for="color-input">Color</label>
-                     <input
-                        id="color-input"
-                        class="input uppercase"
-                        type="text"
-                        v-model="colorLetters"
-                        @input="clearHistorySyncState()"
-                        maxlength="25"
-                     />
-                  </div>
-               </div>
             </div>
-            <h3>History</h3>
-            <div class="history-grid">
-               <HistoryTable
-                  :historyList="historyList"
-                  :boardLetters="boardLettersUpperCase"
-                  :theme="theme"
-                  :boardPreviewCellSize="boardPreviewCellSize"
-                  :selectedIndex="selectedHistoryIndex"
-                  @row-click="onHistoryRowClicked"
-               />
+            <div id="filters-panel" class="filters-panel" v-show="showSearchFilters">
+               <div class="input-div">
+                  <label for="need-input">Need</label>
+                  <input
+                     id="need-input"
+                     class="input"
+                     type="text"
+                     v-model="needLetters"
+                     @input="syncState"
+                     maxlength="25"
+                  />
+               </div>
+               <div class="input-div">
+                  <label for="not-input">Not</label>
+                  <input
+                     id="not-input"
+                     class="input"
+                     type="text"
+                     v-model="notLetters"
+                     @input="syncState"
+                     maxlength="25"
+                  />
+               </div>
+               <div class="input-div">
+                  <label for="word-filter-input">Word</label>
+                  <input
+                     id="word-filter-input"
+                     class="input"
+                     type="text"
+                     v-model="wordFilter"
+                     maxlength="25"
+                  />
+               </div>
             </div>
          </div>
-         <div class="right-pane">
-            <h3>Search Results</h3>
-            <div class="filters-section">
-               <div class="filters-header">
-                  <button
-                     title="click to show/hide"
-                     class="filters-toggle"
-                     type="button"
-                     @click="showSearchFilters = !showSearchFilters"
-                     :aria-expanded="showSearchFilters"
-                     aria-controls="filters-panel"
-                  >
-                     Filters
-                  </button>
-               </div>
-               <div id="filters-panel" class="filters-panel" v-show="showSearchFilters">
-                  <div class="input-div">
-                     <label for="need-input">Need</label>
-                     <input
-                        id="need-input"
-                        class="input"
-                        type="text"
-                        v-model="needLetters"
-                        @input="syncState"
-                        maxlength="25"
-                     />
-                  </div>
-                  <div class="input-div">
-                     <label for="not-input">Not</label>
-                     <input
-                        id="not-input"
-                        class="input"
-                        type="text"
-                        v-model="notLetters"
-                        @input="syncState"
-                        maxlength="25"
-                     />
-                  </div>
-                  <div class="input-div">
-                     <label for="word-filter-input">Word</label>
-                     <input
-                        id="word-filter-input"
-                        class="input"
-                        type="text"
-                        v-model="wordFilter"
-                        maxlength="25"
-                     />
-                  </div>
-               </div>
-            </div>
-            <SearchResults
-               :boardLetters="boardLettersUpperCase"
-               :player="player"
-               :theme="theme"
-               :searchResults="searchResults"
-               :boardPreviewCellSize="boardPreviewCellSize"
-               :move="moveIndicator"
-               :wordFilter="wordFilterDebounced"
-               @add-to-history="addPlayToHistory"
-            ></SearchResults>
-         </div>
+         <SearchResults
+            :boardLetters="boardLettersUpperCase"
+            :player="player"
+            :theme="theme"
+            :searchResults="searchResults"
+            :boardPreviewCellSize="boardPreviewCellSize"
+            :move="moveIndicator"
+            :wordFilter="wordFilterDebounced"
+            @add-to-history="addPlayToHistory"
+         ></SearchResults>
       </div>
    </div>
 </template>
@@ -833,10 +831,8 @@
    .layout {
       display: flex;
       height: 100dvh;
-      width: 100%;
-      margin: 0 auto;
       gap: 8px;
-      padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      padding: max(8px, env(safe-area-inset-top)) calc(max(8px, env(safe-area-inset-right)) + 475px + 8px)
          max(8px, env(safe-area-inset-bottom)) calc(max(8px, env(safe-area-inset-left)) + 180px);
    }
    .menu-pane {
@@ -853,12 +849,6 @@
       padding: 8px;
       border-right: 1px solid v-bind('theme.defaultText');
       border-radius: 0;
-   }
-   .columns {
-      display: flex;
-      margin: 0 auto;
-      gap: 8px;
-      min-height: 0;
    }
    .app-title {
       margin: 0 0 12px 0;
@@ -958,15 +948,30 @@
    .game-item:hover .delete-game-btn {
       display: flex;
    }
-   .left-pane,
-   .right-pane {
+   .left-pane {
       display: flex;
-      flex: 0 0 475px;
-      width: 475px;
+      flex: 1 1 auto;
       flex-direction: column;
       align-items: stretch;
       gap: 8px;
       min-height: 0;
+   }
+   .right-pane {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      min-height: 0;
+      width: 475px;
+      position: fixed;
+      right: 0;
+      top: 0;
+      height: 100dvh;
+      background: v-bind('theme.defaultColor2');
+      color: v-bind('theme.defaultText');
+      padding: 8px;
+      border-left: 1px solid v-bind('theme.defaultText');
+      border-radius: 0;
    }
    .history-grid {
       flex: 1 1 auto;
@@ -1209,16 +1214,15 @@
          padding-right: 0;
          padding-bottom: 4px;
       }
-      .columns {
-         width: 100%;
-         height: auto;
-         flex-direction: column;
-         gap: 8px;
-      }
       .left-pane,
       .right-pane {
          flex: 0 0 auto;
          width: 100%;
+         position: static; /* Remove fixed positioning */
+         height: auto; /* Remove fixed height */
+         border-left: none; /* Remove border-left */
+         background: transparent; /* Remove background */
+         padding: 0; /* Remove padding */
       }
       .results-grid {
          flex: 0 0 auto;
@@ -1233,6 +1237,7 @@
          height: auto;
          width: 100%;
          padding-left: max(8px, env(safe-area-inset-left));
+         padding-right: max(8px, env(safe-area-inset-right)); /* Adjust padding for mobile */
       }
       .left-pane {
          width: 100%;
