@@ -294,7 +294,7 @@
       updateCurrentGameInArray();
       const newId = generateGameId();
       const defaultBoard = useDefault ? 'CONCENTRATEFORLETTERPRESS' : '';
-      const defaultColors = useDefault ? 'BBBBBBWWWrrRRRRRBBBBBWWWrr' : '';
+      const defaultColors = useDefault ? 'BBBBBBBBBBBWWWrrRRRRRrrRR' : '';
       const newGame: StoredGameState = {
          id: newId,
          createdAt: Date.now(),
@@ -832,7 +832,8 @@
       display: flex;
       height: 100dvh;
       gap: 8px;
-      padding: max(8px, env(safe-area-inset-top)) calc(max(8px, env(safe-area-inset-right)) + 475px + 8px)
+      padding: max(8px, env(safe-area-inset-top))
+         calc(max(8px, env(safe-area-inset-right)) + 475px + 8px)
          max(8px, env(safe-area-inset-bottom)) calc(max(8px, env(safe-area-inset-left)) + 180px);
    }
    .menu-pane {
