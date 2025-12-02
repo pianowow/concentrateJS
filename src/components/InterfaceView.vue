@@ -696,58 +696,60 @@
          </div>
       </aside>
       <div class="left-pane">
-         <BoardGrid
-            :letters="boardLettersUpperCase"
-            :colors="boardColorsDefended"
-            :theme="theme"
-            :size="50"
-         />
-         <div class="board-edit">
-            <button
-               title="click to show/hide"
-               class="filters-toggle"
-               type="button"
-               @click="showBoardEdit = !showBoardEdit"
-               :aria-expanded="showBoardEdit"
-               aria-controls="board-input"
-            >
-               Edit Board
-            </button>
-            <div class="board-input" v-show="showBoardEdit">
-               <div class="input-div">
-                  <label for="turn-input">Turn</label>
-                  <select
-                     id="turn-input"
-                     class="input"
-                     v-model.number="moveIndicator"
-                     @change="syncState()"
-                  >
-                     <option :value="1">{{ theme.blueName }} to play</option>
-                     <option :value="-1">{{ theme.redName }} to play</option>
-                  </select>
-               </div>
-               <h4>Note: changing board or color will clear history</h4>
-               <div class="input-div">
-                  <label for="board-input">Board</label>
-                  <input
-                     id="board-input"
-                     class="input uppercase"
-                     type="text"
-                     v-model="boardLetters"
-                     @input="clearHistorySyncState()"
-                     maxlength="25"
-                  />
-               </div>
-               <div class="input-div">
-                  <label for="color-input">Color</label>
-                  <input
-                     id="color-input"
-                     class="input uppercase"
-                     type="text"
-                     v-model="colorLetters"
-                     @input="clearHistorySyncState()"
-                     maxlength="25"
-                  />
+         <div class="board-container">
+            <BoardGrid
+               :letters="boardLettersUpperCase"
+               :colors="boardColorsDefended"
+               :theme="theme"
+               :size="70"
+            />
+            <div class="board-edit">
+               <button
+                  title="click to show/hide"
+                  class="filters-toggle"
+                  type="button"
+                  @click="showBoardEdit = !showBoardEdit"
+                  :aria-expanded="showBoardEdit"
+                  aria-controls="board-input"
+               >
+                  Edit Board
+               </button>
+               <div class="board-input" v-show="showBoardEdit">
+                  <div class="input-div">
+                     <label for="turn-input">Turn</label>
+                     <select
+                        id="turn-input"
+                        class="input"
+                        v-model.number="moveIndicator"
+                        @change="syncState()"
+                     >
+                        <option :value="1">{{ theme.blueName }} to play</option>
+                        <option :value="-1">{{ theme.redName }} to play</option>
+                     </select>
+                  </div>
+                  <h4>Note: changing board or color will clear history</h4>
+                  <div class="input-div">
+                     <label for="board-input">Board</label>
+                     <input
+                        id="board-input"
+                        class="input uppercase"
+                        type="text"
+                        v-model="boardLetters"
+                        @input="clearHistorySyncState()"
+                        maxlength="25"
+                     />
+                  </div>
+                  <div class="input-div">
+                     <label for="color-input">Color</label>
+                     <input
+                        id="color-input"
+                        class="input uppercase"
+                        type="text"
+                        v-model="colorLetters"
+                        @input="clearHistorySyncState()"
+                        maxlength="25"
+                     />
+                  </div>
                </div>
             </div>
          </div>
@@ -766,21 +768,9 @@
       <div class="right-pane">
          <h3>Search Results</h3>
          <div class="filters-section">
-            <div class="filters-header">
-               <button
-                  title="click to show/hide"
-                  class="filters-toggle"
-                  type="button"
-                  @click="showSearchFilters = !showSearchFilters"
-                  :aria-expanded="showSearchFilters"
-                  aria-controls="filters-panel"
-               >
-                  Filters
-               </button>
-            </div>
-            <div id="filters-panel" class="filters-panel" v-show="showSearchFilters">
+            <div id="filters-panel" class="filters-panel">
                <div class="input-div">
-                  <label for="need-input">Need</label>
+                  <label for="need-input">Must Have</label>
                   <input
                      id="need-input"
                      class="input"
@@ -791,7 +781,7 @@
                   />
                </div>
                <div class="input-div">
-                  <label for="not-input">Not</label>
+                  <label for="not-input">Exclude</label>
                   <input
                      id="not-input"
                      class="input"
@@ -802,7 +792,7 @@
                   />
                </div>
                <div class="input-div">
-                  <label for="word-filter-input">Word</label>
+                  <label for="word-filter-input">Exact Pattern</label>
                   <input
                      id="word-filter-input"
                      class="input"
@@ -957,6 +947,11 @@
       gap: 8px;
       min-height: 0;
    }
+   .board-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+   }
    .right-pane {
       display: flex;
       flex-direction: column;
@@ -1000,7 +995,7 @@
       text-transform: uppercase;
    }
    .input-div {
-      width: 330px;
+      width: 370px;
       display: flex;
       align-items: flex-end;
       justify-content: right;
@@ -1011,6 +1006,8 @@
    }
    .board-edit {
       padding-top: 4px;
+      width: 380px;
+      text-align: left;
    }
    .page-input {
       width: 50px;
