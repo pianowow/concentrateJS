@@ -145,7 +145,7 @@
 
 <style scoped>
    .menu-pane {
-      width: 160px;
+      width: 177px;
       display: flex;
       flex-direction: column;
       align-items: stretch;
