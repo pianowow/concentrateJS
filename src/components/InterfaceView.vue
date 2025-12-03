@@ -767,8 +767,6 @@
       background: v-bind('theme.defaultColor2');
       color: v-bind('theme.defaultText');
       padding: 8px;
-      border-left: 1px solid v-bind('theme.defaultText');
-      border-radius: 0;
    }
    h3,
    h4 {

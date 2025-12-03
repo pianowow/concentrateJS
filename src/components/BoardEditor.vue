@@ -53,35 +53,45 @@
          Edit Board
       </button>
       <div class="board-input" v-show="showBoardEdit">
-         <div class="input-div">
-            <label for="turn-input">Turn</label>
-            <select id="turn-input" class="input" :value="moveIndicator" @change="onMoveChange">
+         <div class="select-field">
+            <select
+               id="turn-input"
+               class="select-field__input"
+               :value="moveIndicator"
+               @change="onMoveChange"
+            >
                <option :value="1">{{ theme.blueName }} to play</option>
                <option :value="-1">{{ theme.redName }} to play</option>
             </select>
+            <label for="turn-input" class="select-field__label">Turn</label>
+            <div class="select-field__underline"></div>
          </div>
-         <h4>Note: changing board or color will clear history</h4>
-         <div class="input-div">
-            <label for="board-input">Board</label>
+         <p class="helper-text">Note: changing board or color will clear history</p>
+         <div class="text-field">
             <input
                id="board-input"
-               class="input uppercase"
+               class="text-field__input"
                type="text"
                :value="boardLetters"
                @input="onBoardInput"
                maxlength="25"
+               placeholder=" "
             />
+            <label for="board-input" class="text-field__label">Board</label>
+            <div class="text-field__underline"></div>
          </div>
-         <div class="input-div">
-            <label for="color-input">Color</label>
+         <div class="text-field">
             <input
                id="color-input"
-               class="input uppercase"
+               class="text-field__input"
                type="text"
                :value="colorLetters"
                @input="onColorInput"
                maxlength="25"
+               placeholder=" "
             />
+            <label for="color-input" class="text-field__label">Color</label>
+            <div class="text-field__underline"></div>
          </div>
       </div>
    </div>
@@ -90,7 +100,7 @@
 <style scoped>
    .board-edit {
       padding-top: 4px;
-      width: 380px;
+      width: 350px;
       text-align: left;
    }
 
@@ -116,38 +126,159 @@
       transform: rotate(90deg);
    }
 
-   .input-div {
-      width: 370px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: right;
-      padding-bottom: 8px;
+   .text-field {
+      position: relative;
+      width: 350px;
+      margin-bottom: 12px;
    }
 
-   .input-div label {
-      margin-right: 4px;
+   .select-field {
+      position: relative;
+      width: 350px;
+      margin-bottom: 12px;
    }
 
-   .input {
-      width: 270px;
-      margin-left: 2px;
+   .select-field__input {
+      width: 100%;
       box-sizing: border-box;
-      display: inline-block;
-      padding: 2px 2px;
+      padding: 20px 12px 8px 12px;
       background-color: v-bind('theme.defaultColor2');
       color: v-bind('theme.defaultText');
-      height: 25px;
       font: inherit;
-      border: 1px solid v-bind('theme.defaultText');
-      border-radius: 4px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px 4px 0 0;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      transition: background-color 0.2s ease;
    }
 
-   .uppercase {
+   .select-field__input:hover {
+      filter: brightness(1.05);
+   }
+
+   .select-field__input:focus {
+      filter: brightness(1.05);
+   }
+
+   .select-field__input option {
+      background-color: v-bind('theme.defaultColor2');
+      color: v-bind('theme.defaultText');
+   }
+
+   .select-field__label {
+      position: absolute;
+      left: 12px;
+      top: 4px;
+      color: v-bind('theme.defaultText');
+      opacity: 0.7;
+      font-size: 12px;
+      pointer-events: none;
+   }
+
+   .select-field__underline {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: v-bind('theme.defaultText');
+      opacity: 0.5;
+   }
+
+   .select-field__underline::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background-color: v-bind('theme.defaultText');
+      transition: all 0.2s ease;
+      transform: translateX(-50%);
+   }
+
+   .select-field__input:focus ~ .select-field__underline::after {
+      width: 100%;
+   }
+
+   .text-field__input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 20px 12px 8px 12px;
+      background-color: v-bind('theme.defaultColor2');
+      color: v-bind('theme.defaultText');
+      font: inherit;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px 4px 0 0;
+      outline: none;
+      transition: background-color 0.2s ease;
       text-transform: uppercase;
    }
 
-   h4 {
-      margin: 0;
-      margin-bottom: 6px;
+   .text-field__input:hover {
+      filter: brightness(1.05);
+   }
+
+   .text-field__input:focus {
+      filter: brightness(1.05);
+   }
+
+   .text-field__label {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: v-bind('theme.defaultText');
+      opacity: 0.7;
+      font-size: 16px;
+      pointer-events: none;
+      transition: all 0.2s ease;
+   }
+
+   .text-field__input:focus + .text-field__label,
+   .text-field__input:not(:placeholder-shown) + .text-field__label {
+      top: 4px;
+      transform: translateY(0);
+      font-size: 12px;
+      opacity: 1;
+   }
+
+   .text-field__underline {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: v-bind('theme.defaultText');
+      opacity: 0.5;
+   }
+
+   .text-field__underline::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background-color: v-bind('theme.defaultText');
+      transition: all 0.2s ease;
+      transform: translateX(-50%);
+   }
+
+   .text-field__input:focus ~ .text-field__underline::after {
+      width: 100%;
+   }
+
+   .helper-text {
+      font-size: 12px;
+      opacity: 0.9;
+      margin: 0 0 16px 12px;
+      font-weight: normal;
    }
 </style>
