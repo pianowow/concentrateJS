@@ -187,4 +187,126 @@
    </div>
 </template>
 
-<style></style>
+<style scoped>
+   .results-grid {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+   }
+
+   .table-container {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 1px solid v-bind('theme.defaultText');
+      border-radius: 6px;
+      scrollbar-color: v-bind('theme.defaultText') transparent;
+   }
+
+   .results-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+   }
+
+   .results-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: v-bind('theme.blue');
+      color: v-bind('theme.defaultText');
+      font-weight: 600;
+      padding: 8px 10px;
+      border-right: 1px solid v-bind('theme.defaultText');
+      border-bottom: 1px solid v-bind('theme.defaultText');
+      white-space: nowrap;
+   }
+
+   .results-table thead th:last-child {
+      border-right: none;
+   }
+
+   .results-table tbody td {
+      padding: 6px 8px;
+      vertical-align: middle;
+   }
+
+   .results-table tbody td button {
+      background: transparent;
+      color: v-bind('theme.defaultText');
+      cursor: pointer;
+      border: 1px solid v-bind('theme.defaultText');
+      border-radius: 4px;
+      padding: 2px 8px;
+      font: inherit;
+   }
+
+   .results-table tbody td button:hover {
+      background: v-bind('theme.defaultColor2');
+   }
+
+   .results-table tbody td:last-child {
+      border-right: none;
+   }
+
+   .results-table tbody tr {
+      background: v-bind('theme.defaultColor');
+   }
+
+   .results-table tbody tr:nth-child(even) {
+      background: v-bind('theme.defaultColor2');
+   }
+
+   .pager {
+      display: flex;
+      gap: 20px;
+      justify-content: right;
+   }
+
+   .pager-left {
+      display: flex;
+      align-items: center;
+   }
+
+   .pager-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+   }
+
+   .pager-select {
+      border: 1px solid v-bind('theme.defaultColor2');
+      background: v-bind('theme.defaultColor2');
+      color: v-bind('theme.defaultText');
+      border-radius: 4px;
+      padding: 2px 6px;
+      font: inherit;
+   }
+
+   .pager button {
+      border: none;
+      background: transparent;
+      padding: 4px 4px;
+      cursor: pointer;
+      color: v-bind('theme.defaultText');
+   }
+
+   .pager button:disabled {
+      opacity: 0.6;
+      cursor: default;
+   }
+
+   @media (max-width: 1150px) {
+      .results-grid {
+         flex: 0 0 auto;
+      }
+
+      .table-container {
+         flex: 0 0 auto;
+         max-height: 380px;
+         overflow: auto;
+      }
+   }
+</style>
