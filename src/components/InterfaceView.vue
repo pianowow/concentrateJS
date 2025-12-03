@@ -736,9 +736,7 @@
       display: flex;
       height: 100dvh;
       gap: 8px;
-      padding: max(8px, env(safe-area-inset-top))
-         calc(max(8px, env(safe-area-inset-right)) + 475px + 8px)
-         max(8px, env(safe-area-inset-bottom)) calc(max(8px, env(safe-area-inset-left)) + 180px);
+      width: 100%;
    }
    .left-pane {
       display: flex;
@@ -747,6 +745,7 @@
       align-items: stretch;
       gap: 8px;
       min-height: 0;
+      width: 50%;
    }
    .board-container {
       display: flex;
@@ -759,10 +758,7 @@
       align-items: stretch;
       gap: 8px;
       min-height: 0;
-      width: 475px;
-      position: fixed;
-      right: 0;
-      top: 0;
+      width: 50%;
       height: 100dvh;
       color: v-bind('theme.defaultText');
       padding: 8px;
