@@ -347,5 +347,8 @@
          max-height: 380px;
          overflow: auto;
       }
+      .table-wrapper {
+         max-height: 380px;
+      }
    }
 </style>
