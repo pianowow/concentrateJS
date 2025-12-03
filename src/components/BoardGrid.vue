@@ -34,27 +34,27 @@
 
 <style>
    .b {
-      background-color: v-bind('props.theme.blue');
-      color: v-bind('props.theme.blueText');
+      background-color: var(--theme-blue);
+      color: var(--theme-blue-text);
    }
    .B {
-      background-color: v-bind('props.theme.defendedBlue');
-      color: v-bind('props.theme.defendedBlueText');
+      background-color: var(--theme-defended-blue);
+      color: var(--theme-defended-blue-text);
    }
    .r {
-      background-color: v-bind('props.theme.red');
-      color: v-bind('props.theme.redText');
+      background-color: var(--theme-red);
+      color: var(--theme-red-text);
    }
    .R {
-      background-color: v-bind('props.theme.defendedRed');
-      color: v-bind('props.theme.defendedRedText');
+      background-color: var(--theme-defended-red);
+      color: var(--theme-defended-red-text);
    }
    .w {
-      background-color: v-bind('props.theme.defaultColor');
-      color: v-bind('props.theme.defaultText');
+      background-color: var(--theme-default-color);
+      color: var(--theme-default-text);
    }
    .board-wrapper > .row:nth-child(odd) > .letter.w:nth-child(even),
    .board-wrapper > .row:nth-child(even) > .letter.w:nth-child(odd) {
-      background-color: v-bind('props.theme.defaultColor2');
+      background-color: var(--theme-default-color2);
    }
 </style>

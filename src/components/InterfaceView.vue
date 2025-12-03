@@ -30,6 +30,19 @@
    const themes = new Themes();
    const themeSelected = ref<ThemeName>('Light');
    const theme = computed<ThemeConfig>(() => themes[themeSelected.value]);
+   const themeVars = computed(() => ({
+      '--theme-blue': theme.value.blue,
+      '--theme-blue-text': theme.value.blueText,
+      '--theme-defended-blue': theme.value.defendedBlue,
+      '--theme-defended-blue-text': theme.value.defendedBlueText,
+      '--theme-red': theme.value.red,
+      '--theme-red-text': theme.value.redText,
+      '--theme-defended-red': theme.value.defendedRed,
+      '--theme-defended-red-text': theme.value.defendedRedText,
+      '--theme-default-color': theme.value.defaultColor,
+      '--theme-default-color2': theme.value.defaultColor2,
+      '--theme-default-text': theme.value.defaultText,
+   }));
    watch(
       theme,
       (t) => {
@@ -651,7 +664,7 @@
       @update:useBadWords="useBadWords = $event"
    />
 
-   <div class="layout">
+   <div class="layout" :style="themeVars">
       <GamesSidebar
          :games="games"
          :selectedGameId="selectedGameId"
@@ -762,7 +775,7 @@
       min-height: 0;
       width: 50%;
       height: 100dvh;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       padding: 8px;
    }
    h3,
