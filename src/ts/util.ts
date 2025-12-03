@@ -48,3 +48,63 @@ export function packKey(n1: number, n2: number) {
 export function unpackKey(key: number) {
    return [Math.floor(key / 2 ** 25), key % 2 ** 25];
 }
+
+export interface ScoreBarData {
+   bluePercent: number;
+   redPercent: number;
+   isWin: boolean;
+}
+
+/**
+ * Computes the score bar fill percentages for blue and red
+ * For wins: based on actual tile counts (score / 1000 = margin, total = 25)
+ * For in-progress: only winning color extends from center
+ */
+export function computeScoreBar(score: number): ScoreBarData {
+   const isWin = Math.abs(score) >= 1000;
+
+   if (isWin) {
+      // Score is margin * 1000, e.g., 5000 means won by 5 (like 15-10)
+      // margin = winner - loser, and winner + loser = 25
+      // So: winner = (25 + margin) / 2, loser = (25 - margin) / 2
+      const margin = Math.floor(Math.abs(score) / 1000);
+      const winner = (25 + margin) / 2;
+      const loser = (25 - margin) / 2;
+
+      if (score > 0) {
+         return {
+            bluePercent: (winner / 25) * 100,
+            redPercent: (loser / 25) * 100,
+            isWin: true,
+         };
+      } else {
+         return {
+            bluePercent: (loser / 25) * 100,
+            redPercent: (winner / 25) * 100,
+            isWin: true,
+         };
+      }
+   }
+
+   if (Math.abs(score) < 1) {
+      return { bluePercent: 0, redPercent: 0, isWin: false };
+   }
+
+   // Logarithmic scale from 1 to 100 -> 0% to 100% of half the bar
+   const absScore = Math.min(Math.abs(score), 100);
+   const percent = (Math.log10(absScore) / 2) * 100;
+
+   if (score > 0) {
+      return {
+         bluePercent: percent,
+         redPercent: 0,
+         isWin: false,
+      };
+   } else {
+      return {
+         bluePercent: 0,
+         redPercent: percent,
+         isWin: false,
+      };
+   }
+}

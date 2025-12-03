@@ -3,6 +3,7 @@
    import type { Player, Play } from '../ts/player';
    import type { ThemeConfig } from '../ts/board';
    import { mapsToColors } from '../ts/board';
+   import { computeScoreBar } from '../ts/util';
    import BoardGrid from './BoardGrid.vue';
 
    const props = defineProps<{
@@ -99,14 +100,12 @@
             <table class="results-table">
                <colgroup>
                   <col class="col-word" />
-                  <col class="col-score" />
                   <col class="col-board" />
                   <col class="col-finish" />
                </colgroup>
                <thead>
                   <tr>
                      <th style="text-align: left">Word</th>
-                     <th style="text-align: left">Score</th>
                      <th style="text-align: left">Board</th>
                      <th style="text-align: left">Finish</th>
                   </tr>
@@ -117,7 +116,6 @@
             <table class="results-table">
                <colgroup>
                   <col class="col-word" />
-                  <col class="col-score" />
                   <col class="col-board" />
                   <col class="col-finish" />
                </colgroup>
@@ -129,8 +127,49 @@
                      title="Click to add this play to history"
                      @click="addToHistory(play)"
                   >
-                     <td>{{ play.word }}</td>
-                     <td>{{ play.score }}</td>
+                     <td class="word-cell-td">
+                        <div class="word-cell">
+                           <span class="word-text">{{ play.word }}</span>
+                           <div
+                              class="score-bar"
+                              :class="{ 'score-bar-win': computeScoreBar(play.score).isWin }"
+                              :title="'Score: ' + play.score"
+                           >
+                              <template v-if="computeScoreBar(play.score).isWin">
+                                 <div
+                                    class="score-fill red"
+                                    :style="{ width: computeScoreBar(play.score).redPercent + '%' }"
+                                 ></div>
+                                 <div
+                                    class="score-fill blue"
+                                    :style="{
+                                       width: computeScoreBar(play.score).bluePercent + '%',
+                                    }"
+                                 ></div>
+                              </template>
+                              <template v-else>
+                                 <div class="score-bar-left">
+                                    <div
+                                       v-if="computeScoreBar(play.score).redPercent > 0"
+                                       class="score-fill red"
+                                       :style="{
+                                          width: computeScoreBar(play.score).redPercent + '%',
+                                       }"
+                                    ></div>
+                                 </div>
+                                 <div class="score-bar-right">
+                                    <div
+                                       v-if="computeScoreBar(play.score).bluePercent > 0"
+                                       class="score-fill blue"
+                                       :style="{
+                                          width: computeScoreBar(play.score).bluePercent + '%',
+                                       }"
+                                    ></div>
+                                 </div>
+                              </template>
+                           </div>
+                        </div>
+                     </td>
                      <td>
                         <BoardGrid
                            :letters="boardLetters"
@@ -240,16 +279,67 @@
       width: auto;
    }
 
-   .col-score {
-      width: 70px;
-   }
-
    .col-board {
       width: 70px;
    }
 
    .col-finish {
       width: 60px;
+   }
+
+   .word-cell {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      justify-content: center;
+      padding: 6px 8px;
+      z-index: 0;
+   }
+
+   .word-text {
+      font-weight: 500;
+   }
+
+   .score-bar {
+      display: flex;
+      height: 10px;
+      width: 100%;
+      border: 1px solid v-bind('theme.defaultText');
+      border-radius: 2px;
+      overflow: hidden;
+      opacity: 0.7;
+   }
+
+   .score-bar-left {
+      flex: 1;
+      display: flex;
+      justify-content: flex-end;
+      border-right: 1px solid v-bind('theme.defaultText');
+   }
+
+   .score-bar-right {
+      flex: 1;
+      display: flex;
+      justify-content: flex-start;
+   }
+
+   .score-bar-win .score-fill {
+      flex: none;
+   }
+
+   .score-fill {
+      height: 100%;
+      transition: width 0.2s ease;
+   }
+
+   .score-fill.blue {
+      background-color: v-bind('theme.defendedBlue');
+   }
+
+   .score-fill.red {
+      background-color: v-bind('theme.defendedRed');
    }
 
    .results-table {
@@ -276,6 +366,11 @@
       vertical-align: middle;
    }
 
+   .results-table tbody td.word-cell-td {
+      position: relative;
+      padding: 0;
+   }
+
    .results-table tbody tr {
       cursor: pointer;
       background: v-bind('theme.defaultColor');
@@ -296,6 +391,7 @@
       background: v-bind('theme.defaultText');
       opacity: 0.05;
       pointer-events: none;
+      z-index: 2;
    }
 
    .pager {
