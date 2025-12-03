@@ -149,7 +149,6 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      position: fixed;
       left: 0;
       top: 0;
       height: 100dvh;
@@ -277,9 +276,6 @@
          flex: 0 0 auto;
          position: static;
          height: auto;
-         border-right: none;
-         border: 1px solid v-bind('theme.defaultText');
-         border-radius: 6px;
       }
 
       .games-list {
