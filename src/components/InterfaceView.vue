@@ -746,6 +746,8 @@
       gap: 8px;
       min-height: 0;
       width: 50%;
+      height: 100dvh;
+      padding: 8px;
    }
    .board-container {
       display: flex;
