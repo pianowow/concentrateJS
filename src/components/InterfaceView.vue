@@ -764,7 +764,6 @@
       right: 0;
       top: 0;
       height: 100dvh;
-      background: v-bind('theme.defaultColor2');
       color: v-bind('theme.defaultText');
       padding: 8px;
    }

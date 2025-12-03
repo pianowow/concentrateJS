@@ -99,25 +99,14 @@
       width: 100%;
       box-sizing: border-box;
       padding: 20px 12px 8px 12px;
-      background-color: v-bind('theme.defaultColor2');
+      background-color: transparent;
       color: v-bind('theme.defaultText');
       font: inherit;
       font-size: 16px;
       border: none;
-      border-radius: 4px 4px 0 0;
+      border-radius: 0;
       outline: none;
-      transition: background-color 0.2s ease;
       text-transform: uppercase;
-   }
-
-   .text-field__input:hover {
-      background-color: v-bind('theme.defaultColor2');
-      filter: brightness(1.05);
-   }
-
-   .text-field__input:focus {
-      background-color: v-bind('theme.defaultColor2');
-      filter: brightness(1.05);
    }
 
    .text-field__label {

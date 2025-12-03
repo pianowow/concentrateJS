@@ -142,27 +142,18 @@
       width: 100%;
       box-sizing: border-box;
       padding: 20px 12px 8px 12px;
-      background-color: v-bind('theme.defaultColor2');
+      background-color: transparent;
       color: v-bind('theme.defaultText');
       font: inherit;
       font-size: 16px;
       border: none;
-      border-radius: 4px 4px 0 0;
+      border-radius: 0;
       outline: none;
       cursor: pointer;
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 12px center;
-      transition: background-color 0.2s ease;
-   }
-
-   .select-field__input:hover {
-      filter: brightness(1.05);
-   }
-
-   .select-field__input:focus {
-      filter: brightness(1.05);
    }
 
    .select-field__input option {
@@ -210,23 +201,14 @@
       width: 100%;
       box-sizing: border-box;
       padding: 20px 12px 8px 12px;
-      background-color: v-bind('theme.defaultColor2');
+      background-color: transparent;
       color: v-bind('theme.defaultText');
       font: inherit;
       font-size: 16px;
       border: none;
-      border-radius: 4px 4px 0 0;
+      border-radius: 0;
       outline: none;
-      transition: background-color 0.2s ease;
       text-transform: uppercase;
-   }
-
-   .text-field__input:hover {
-      filter: brightness(1.05);
-   }
-
-   .text-field__input:focus {
-      filter: brightness(1.05);
    }
 
    .text-field__label {

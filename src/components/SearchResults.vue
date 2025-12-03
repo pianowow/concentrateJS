@@ -215,13 +215,14 @@
       position: sticky;
       top: 0;
       z-index: 1;
-      background: v-bind('theme.blue');
+      background: v-bind('theme.defaultColor2');
       color: v-bind('theme.defaultText');
       font-weight: 600;
       padding: 8px 10px;
       border-right: 1px solid v-bind('theme.defaultText');
       border-bottom: 1px solid v-bind('theme.defaultText');
       white-space: nowrap;
+      filter: brightness(1.05);
    }
 
    .results-table thead th:last-child {
