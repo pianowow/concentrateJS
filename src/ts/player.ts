@@ -195,90 +195,117 @@ export class Player {
       // Fast-path: no filters => return as-is
       if (!needLetters && !notLetters && !anyLetters) return possibleWords;
 
-      const A = 65; // 'A'
+      const A = 65;
       // Board letter availability counts
       const boardCnt = new Uint8Array(26);
       for (let i = 0; i < 25; i++) {
          const idx = allLetters.charCodeAt(i) - A;
          if (idx >= 0 && idx < 26) boardCnt[idx]! += 1;
       }
-      // Need / Not counts and index lists (to iterate only relevant letters)
+
+      // Need counts and presence mask
       const needCnt = new Uint8Array(26);
-      const needIdx: number[] = [];
+      let needMask = 0; // bitmask of which letters are in needLetters
       for (let i = 0; i < needLetters.length; i++) {
          const idx = needLetters.charCodeAt(i) - A;
          if (idx >= 0 && idx < 26) {
-            if (needCnt[idx] === 0) needIdx.push(idx);
             needCnt[idx]! += 1;
+            needMask |= 1 << idx;
          }
       }
-      const notCnt = new Uint8Array(26);
-      const notIdx: number[] = [];
+
+      // Not: compute available counts directly (board - not)
+      const availAfterNot = new Uint8Array(26);
+      let notMask = 0;
+      for (let i = 0; i < 26; i++) availAfterNot[i] = boardCnt[i]!;
       for (let i = 0; i < notLetters.length; i++) {
          const idx = notLetters.charCodeAt(i) - A;
          if (idx >= 0 && idx < 26) {
-            if (notCnt[idx] === 0) notIdx.push(idx);
-            notCnt[idx]! += 1;
+            availAfterNot[idx] = availAfterNot[idx]! > 0 ? availAfterNot[idx]! - 1 : 0;
+            notMask |= 1 << idx;
          }
       }
-      // Any-letter presence
-      const anyPres = new Uint8Array(26);
-      const anyHas = anyLetters.length > 0;
+
+      // Any-letter presence as bitmask
+      let anyMask = 0;
       for (let i = 0; i < anyLetters.length; i++) {
          const idx = anyLetters.charCodeAt(i) - A;
-         if (idx >= 0 && idx < 26) anyPres[idx] = 1;
+         if (idx >= 0 && idx < 26) anyMask |= 1 << idx;
       }
-      // build prefix set of played words
+      const hasAny = anyMask !== 0;
+      const hasNot = notMask !== 0;
+
+      // Combined relevance mask for quick skip
+      const relevantMask = needMask | notMask | anyMask;
+
+      // Build prefix set of played words
       const prefixBlocked = new Set<string>();
-      for (const played of this.cache[allLetters][1]) {
-         for (let i = 1; i < played.length; i++) {
-            prefixBlocked.add(played.slice(0, i));
+      const playedWords = this.cache[allLetters][1];
+      if (playedWords.length > 0) {
+         for (const played of playedWords) {
+            for (let i = 1; i < played.length; i++) {
+               prefixBlocked.add(played.slice(0, i));
+            }
          }
       }
-      // Per-word counters only for relevant letters; reset via touched list
-      const wCnt = new Uint8Array(26);
-      const touched: number[] = [];
+      const hasBlocked = prefixBlocked.size > 0;
 
+      // Per-word counters - use simple reset instead of touched array
+      const wCnt = new Uint8Array(26);
       const out: string[] = [];
+
       for (const word of possibleWords) {
-         let anyMatch = !anyHas;
+         // Quick prefix check first (often eliminates words early)
+         if (hasBlocked && prefixBlocked.has(word)) continue;
+
+         let anyMatch = !hasAny;
+         let usedMask = 0; // track which indices we touched
+
          // Count only letters we care about
          for (let i = 0; i < word.length; i++) {
             const idx = word.charCodeAt(i) - A;
             if (idx < 0 || idx >= 26) continue;
-            if (needCnt[idx]! | notCnt[idx]! | anyPres[idx]!) {
-               if (wCnt[idx] === 0) touched.push(idx);
+            const bit = 1 << idx;
+            if (relevantMask & bit) {
                wCnt[idx]! += 1;
-               if (!anyMatch && anyPres[idx]) anyMatch = true;
+               usedMask |= bit;
+               if (!anyMatch && anyMask & bit) anyMatch = true;
             }
          }
+
          // Check need: word must have at least the required counts
          let ok = true;
-         for (let j = 0; j < needIdx.length; j++) {
-            const idx = needIdx[j]!;
-            if (wCnt[idx]! < needCnt[idx]!) {
-               ok = false;
-               break;
+         if (needMask) {
+            let checkMask = needMask;
+            while (checkMask && ok) {
+               const bit = checkMask & -checkMask;
+               const idx = 31 - Math.clz32(bit);
+               if (wCnt[idx]! < needCnt[idx]!) ok = false;
+               checkMask ^= bit;
             }
          }
+
          // Check not: cannot exceed available after reserving notCnt
-         if (ok && notIdx.length) {
-            for (let j = 0; j < notIdx.length; j++) {
-               const idx = notIdx[j]!;
-               const avail = boardCnt[idx]! - notCnt[idx]!;
-               if (wCnt[idx]! > avail) {
-                  ok = false;
-                  break;
-               }
+         if (ok && hasNot) {
+            let checkMask = usedMask & notMask;
+            while (checkMask && ok) {
+               const bit = checkMask & -checkMask;
+               const idx = 31 - Math.clz32(bit);
+               if (wCnt[idx]! > availAfterNot[idx]!) ok = false;
+               checkMask ^= bit;
             }
          }
-         const prefix = prefixBlocked.has(word) ? true : false;
-         if (ok && anyHas && !anyMatch) ok = false;
-         if (ok && prefix) ok = false;
+
+         if (ok && hasAny && !anyMatch) ok = false;
          if (ok) out.push(word);
-         // Reset touched counters
-         for (let t = 0; t < touched.length; t++) wCnt[touched[t]!] = 0;
-         touched.length = 0;
+
+         // Reset only touched indices using bitmask
+         while (usedMask) {
+            const bit = usedMask & -usedMask;
+            const idx = 31 - Math.clz32(bit);
+            wCnt[idx] = 0;
+            usedMask ^= bit;
+         }
       }
       return out;
    }
