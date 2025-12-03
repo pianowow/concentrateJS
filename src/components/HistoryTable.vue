@@ -66,52 +66,70 @@
 <template>
    <div class="history-grid">
       <h3>History</h3>
-      <div class="table-container">
-         <table class="results-table">
-            <thead>
-               <tr>
-                  <th style="text-align: left; width: 80px">Move</th>
-                  <th style="text-align: left">Word</th>
-                  <th style="text-align: left; width: 100px">Score</th>
-                  <th style="text-align: left; width: 80px">Board</th>
-               </tr>
-            </thead>
-            <tbody>
-               <tr
-                  v-for="(entry, i) in pagedHistory"
-                  :key="startIndex + i + '-' + entry.text"
-                  :class="{ selected: startIndex + i === selectedIndex }"
-                  :style="{ height: rowHeightPx + 'px', cursor: 'pointer' }"
-                  @click="onRowClick(entry, i)"
-               >
-                  <td>
-                     <div class="move-cell-wrapper">
-                        <div
-                           class="move-cell"
-                           :style="{
-                              backgroundColor:
-                                 entry.type === 1
-                                    ? theme.defendedBlue
-                                    : entry.type === -1
-                                      ? theme.defendedRed
-                                      : theme.defaultColor,
-                           }"
-                        ></div>
-                     </div>
-                  </td>
-                  <td>{{ entry.text }}</td>
-                  <td>{{ entry.score }}</td>
-                  <td>
-                     <BoardGrid
-                        :letters="boardLetters"
-                        :colors="entry.colors"
-                        :theme="theme"
-                        :size="boardPreviewCellSize"
-                     />
-                  </td>
-               </tr>
-            </tbody>
-         </table>
+      <div class="table-wrapper">
+         <div class="header-container">
+            <table class="results-table">
+               <colgroup>
+                  <col class="col-move" />
+                  <col class="col-word" />
+                  <col class="col-score" />
+                  <col class="col-board" />
+               </colgroup>
+               <thead>
+                  <tr>
+                     <th style="text-align: left">Move</th>
+                     <th style="text-align: left">Word</th>
+                     <th style="text-align: left">Score</th>
+                     <th style="text-align: left">Board</th>
+                  </tr>
+               </thead>
+            </table>
+         </div>
+         <div class="table-body-container">
+            <table class="results-table">
+               <colgroup>
+                  <col class="col-move" />
+                  <col class="col-word" />
+                  <col class="col-score" />
+                  <col class="col-board" />
+               </colgroup>
+               <tbody>
+                  <tr
+                     v-for="(entry, i) in pagedHistory"
+                     :key="startIndex + i + '-' + entry.text"
+                     :class="{ selected: startIndex + i === selectedIndex }"
+                     :style="{ height: rowHeightPx + 'px', cursor: 'pointer' }"
+                     @click="onRowClick(entry, i)"
+                  >
+                     <td>
+                        <div class="move-cell-wrapper">
+                           <div
+                              class="move-cell"
+                              :style="{
+                                 backgroundColor:
+                                    entry.type === 1
+                                       ? theme.defendedBlue
+                                       : entry.type === -1
+                                         ? theme.defendedRed
+                                         : theme.defaultColor,
+                              }"
+                           ></div>
+                        </div>
+                     </td>
+                     <td>{{ entry.text }}</td>
+                     <td>{{ entry.score }}</td>
+                     <td>
+                        <BoardGrid
+                           :letters="boardLetters"
+                           :colors="entry.colors"
+                           :theme="theme"
+                           :size="boardPreviewCellSize"
+                        />
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
       </div>
       <div class="pager">
          <div class="pager-left">
@@ -181,13 +199,46 @@
       margin-bottom: 6px;
    }
 
-   .table-container {
+   .table-wrapper {
       flex: 1 1 auto;
       min-height: 0;
-      overflow: auto;
+      display: flex;
+      flex-direction: column;
       border: 1px solid v-bind('theme.defaultText');
       border-radius: 6px;
+      overflow: hidden;
+   }
+
+   .table-body-container {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
       scrollbar-color: v-bind('theme.defaultText') transparent;
+   }
+
+   .header-container {
+      flex: 0 0 auto;
+      overflow-y: scroll;
+      scrollbar-color: transparent transparent;
+      background: v-bind('theme.defaultColor2');
+      filter: brightness(1.05);
+      border-bottom: 1px solid v-bind('theme.defaultText');
+   }
+
+   .col-move {
+      width: 60px;
+   }
+
+   .col-word {
+      width: auto;
+   }
+
+   .col-score {
+      width: 70px;
+   }
+
+   .col-board {
+      width: 70px;
    }
 
    .results-table {
@@ -197,17 +248,12 @@
    }
 
    .results-table thead th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      background: v-bind('theme.defaultColor2');
+      background: transparent;
       color: v-bind('theme.defaultText');
       font-weight: 600;
       padding: 8px 10px;
       border-right: 1px solid v-bind('theme.defaultText');
-      border-bottom: 1px solid v-bind('theme.defaultText');
       white-space: nowrap;
-      filter: brightness(1.05);
    }
 
    .results-table thead th:last-child {
@@ -238,7 +284,7 @@
    .move-cell-wrapper {
       display: flex;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: center;
       height: 100%;
    }
 
@@ -293,10 +339,9 @@
          flex: 0 0 auto;
       }
 
-      .table-container {
+      .table-wrapper {
          flex: 0 0 auto;
          max-height: 380px;
-         overflow: auto;
       }
    }
 </style>

@@ -94,44 +94,58 @@
 
 <template>
    <div class="results-grid">
-      <div class="table-container">
-         <table class="results-table">
-            <thead>
-               <tr>
-                  <th style="text-align: left">Word</th>
-                  <th style="text-align: left; width: 100px">Score</th>
-                  <th style="text-align: left; width: 80px">Board</th>
-                  <th style="text-align: left; width: 80px">Finish</th>
-                  <th style="text-align: left; width: 80px">Action</th>
-               </tr>
-            </thead>
-            <tbody>
-               <tr
-                  v-for="play in pagedResults"
-                  :key="play.word + '-' + play.blue_map + '-' + play.red_map"
-                  :style="{ height: rowHeightPx + 'px' }"
-               >
-                  <td>{{ play.word }}</td>
-                  <td>{{ play.score }}</td>
-                  <td>
-                     <BoardGrid
-                        :letters="boardLetters"
-                        :colors="mapsToColors(play.blue_map, play.red_map)"
-                        :theme="theme"
-                        :size="boardPreviewCellSize"
-                     />
-                  </td>
-                  <td>
-                     <span v-html="computeFinish(play)"></span>
-                  </td>
-                  <td>
-                     <button type="button" title="Add to history" @click="addToHistory(play)">
-                        Play
-                     </button>
-                  </td>
-               </tr>
-            </tbody>
-         </table>
+      <div class="table-wrapper">
+         <div class="header-container">
+            <table class="results-table">
+               <colgroup>
+                  <col class="col-word" />
+                  <col class="col-score" />
+                  <col class="col-board" />
+                  <col class="col-finish" />
+               </colgroup>
+               <thead>
+                  <tr>
+                     <th style="text-align: left">Word</th>
+                     <th style="text-align: left">Score</th>
+                     <th style="text-align: left">Board</th>
+                     <th style="text-align: left">Finish</th>
+                  </tr>
+               </thead>
+            </table>
+         </div>
+         <div class="table-body-container">
+            <table class="results-table">
+               <colgroup>
+                  <col class="col-word" />
+                  <col class="col-score" />
+                  <col class="col-board" />
+                  <col class="col-finish" />
+               </colgroup>
+               <tbody>
+                  <tr
+                     v-for="play in pagedResults"
+                     :key="play.word + '-' + play.blue_map + '-' + play.red_map"
+                     :style="{ height: rowHeightPx + 'px' }"
+                     title="Click to add this play to history"
+                     @click="addToHistory(play)"
+                  >
+                     <td>{{ play.word }}</td>
+                     <td>{{ play.score }}</td>
+                     <td>
+                        <BoardGrid
+                           :letters="boardLetters"
+                           :colors="mapsToColors(play.blue_map, play.red_map)"
+                           :theme="theme"
+                           :size="boardPreviewCellSize"
+                        />
+                     </td>
+                     <td>
+                        <span v-html="computeFinish(play)"></span>
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
       </div>
       <div class="pager">
          <div class="pager-left">
@@ -196,13 +210,46 @@
       gap: 8px;
    }
 
-   .table-container {
+   .table-wrapper {
       flex: 1 1 auto;
       min-height: 0;
-      overflow: auto;
+      display: flex;
+      flex-direction: column;
       border: 1px solid v-bind('theme.defaultText');
       border-radius: 6px;
+      overflow: hidden;
+   }
+
+   .table-body-container {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
       scrollbar-color: v-bind('theme.defaultText') transparent;
+   }
+
+   .header-container {
+      flex: 0 0 auto;
+      overflow-y: scroll;
+      scrollbar-color: transparent transparent;
+      background: v-bind('theme.defaultColor2');
+      filter: brightness(1.05);
+      border-bottom: 1px solid v-bind('theme.defaultText');
+   }
+
+   .col-word {
+      width: auto;
+   }
+
+   .col-score {
+      width: 70px;
+   }
+
+   .col-board {
+      width: 70px;
+   }
+
+   .col-finish {
+      width: 60px;
    }
 
    .results-table {
@@ -212,17 +259,12 @@
    }
 
    .results-table thead th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      background: v-bind('theme.defaultColor2');
+      background: transparent;
       color: v-bind('theme.defaultText');
       font-weight: 600;
       padding: 8px 10px;
       border-right: 1px solid v-bind('theme.defaultText');
-      border-bottom: 1px solid v-bind('theme.defaultText');
       white-space: nowrap;
-      filter: brightness(1.05);
    }
 
    .results-table thead th:last-child {
@@ -234,30 +276,26 @@
       vertical-align: middle;
    }
 
-   .results-table tbody td button {
-      background: transparent;
-      color: v-bind('theme.defaultText');
-      cursor: pointer;
-      border: 1px solid v-bind('theme.defaultText');
-      border-radius: 4px;
-      padding: 2px 8px;
-      font: inherit;
-   }
-
-   .results-table tbody td button:hover {
-      background: v-bind('theme.defaultColor2');
-   }
-
-   .results-table tbody td:last-child {
-      border-right: none;
-   }
-
    .results-table tbody tr {
+      cursor: pointer;
       background: v-bind('theme.defaultColor');
    }
 
    .results-table tbody tr:nth-child(even) {
       background: v-bind('theme.defaultColor2');
+   }
+
+   .results-table tbody tr:hover td {
+      position: relative;
+   }
+
+   .results-table tbody tr:hover td::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: v-bind('theme.defaultText');
+      opacity: 0.05;
+      pointer-events: none;
    }
 
    .pager {
