@@ -750,21 +750,27 @@ export class Player {
    }
 
    // Group plays by score, sort unique scores, then flatten.
+   // Uses insertion sort for secondary ordering by word length within each bucket.
    private bucketSortByScore(plays: Play[], move: number): Play[] {
       const buckets = new Map<number, Play[]>();
       for (const p of plays) {
          const k = p.score;
          const b = buckets.get(k);
-         if (b) b.push(p);
-         else buckets.set(k, [p]);
+         if (b) {
+            // Insertion sort by word length (descending)
+            const len = p.word.length;
+            let i = b.length;
+            while (i > 0 && b[i - 1]!.word.length < len) i--;
+            b.splice(i, 0, p);
+         } else {
+            buckets.set(k, [p]);
+         }
       }
       const keys = Array.from(buckets.keys());
       keys.sort((a, b) => (move > 0 ? b - a : a - b));
       const out: Play[] = [];
       for (const k of keys) {
-         const group = buckets.get(k)!;
-         group.sort((a, b) => b.word.length - a.word.length);
-         out.push(...group);
+         out.push(...buckets.get(k)!);
       }
       return out;
    }
