@@ -281,6 +281,19 @@
       background: v-bind('theme.blue');
    }
 
+   .results-table tbody tr:hover td {
+      position: relative;
+   }
+
+   .results-table tbody tr:hover td::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: v-bind('theme.defaultText');
+      opacity: 0.05;
+      pointer-events: none;
+   }
+
    .move-cell-wrapper {
       display: flex;
       align-items: center;
