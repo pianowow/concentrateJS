@@ -26,6 +26,7 @@
    // Lightweight pager state
    const pageSize = ref(20);
    const currentPage = ref(0);
+   const editCurrentPage = ref(false);
    const filteredResults = computed(() => {
       const q = (wordFilter.value || '').trim().toUpperCase();
       if (!q) return searchResults.value;
@@ -91,6 +92,10 @@
       },
       { immediate: true }
    );
+
+   function pageSpanClick() {
+      editCurrentPage.value = !editCurrentPage.value;
+   }
 </script>
 
 <template>
@@ -216,7 +221,8 @@
             >
                &lt;
             </button>
-            <span>Page {{ currentPage + 1 }} / {{ totalPages }}</span>
+            <span @click="pageSpanClick">Page {{ currentPage + 1 }} / {{ totalPages }}</span>
+            <input v-if="editCurrentPage" v-model.number="currentPage" />
             <button
                type="button"
                aria-label="Next Page"
