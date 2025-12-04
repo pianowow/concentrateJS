@@ -3,9 +3,19 @@
    import type { ThemeConfig } from '../ts/board';
    import BoardGrid from './BoardGrid.vue';
 
+   interface HistoryNode {
+      id: string;
+      type: number;
+      text: string;
+      colors: string;
+      score: number;
+      parentId: string | null;
+      childIds: string[];
+   }
+
    interface StoredGameState {
-      historyList: { type: number; text: string; colors: string; score: number }[];
-      selectedHistoryIndex: number | null;
+      historyNodes: HistoryNode[];
+      selectedNodeId: string | null;
       moveIndicator: number;
       id: string;
       createdAt: number;
@@ -44,13 +54,23 @@
    });
 
    function getGameBoardLetters(game: StoredGameState): string {
-      const initial = game.historyList.find((h) => h.type === 0);
+      const initial = game.historyNodes.find((h) => h.type === 0);
       return initial?.text.toUpperCase() ?? '';
    }
 
    function getGameCurrentColors(game: StoredGameState): string {
-      const idx = game.selectedHistoryIndex ?? game.historyList.length - 1;
-      return game.historyList[idx]?.colors ?? '';
+      // Find selected node or last node in main line
+      if (game.selectedNodeId) {
+         const selected = game.historyNodes.find((n) => n.id === game.selectedNodeId);
+         if (selected) return selected.colors;
+      }
+      // Follow main line (first children) to find last node
+      const nodeMap = new Map(game.historyNodes.map((n) => [n.id, n]));
+      let current = game.historyNodes.find((n) => n.parentId === null);
+      while (current && current.childIds.length > 0) {
+         current = nodeMap.get(current.childIds[0]!);
+      }
+      return current?.colors ?? '';
    }
 
    function onDragStart(gameId: string) {

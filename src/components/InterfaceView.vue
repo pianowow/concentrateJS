@@ -11,7 +11,7 @@
    } from 'vue';
    import BoardGrid from './BoardGrid.vue';
    import SearchResults from './SearchResults.vue';
-   import HistoryTable from './HistoryTable.vue';
+   import HistoryTree from './HistoryTree.vue';
    import GamesSidebar from './GamesSidebar.vue';
    import SettingsModal from './SettingsModal.vue';
    import BoardEditor from './BoardEditor.vue';
@@ -26,6 +26,20 @@
       convertBoardScore,
    } from '../ts/board';
    import { roundTo } from '../ts/util';
+   import {
+      type HistoryTree as HistoryTreeType,
+      type HistoryNode,
+      createEmptyTree,
+      createRootNode,
+      createMoveNode,
+      addNodeToTree,
+      getPathToNode,
+      serializeTreeToHash,
+      parseHashToTree,
+      treeToArray,
+      arrayToTree,
+      resetNodeIdCounter,
+   } from '../ts/historyTree';
 
    const themes = new Themes();
    const themeSelected = ref<ThemeName>('Light');
@@ -70,18 +84,7 @@
       saveToLocalStorage();
       await reloadWordList();
    });
-   class HistoryEntry {
-      type: number; //1 blue, -1 red, 0 initial position
-      text: string; //word played or board letters
-      colors: string;
-      score: number;
-      constructor(type: number, text: string, colors: string, score: number) {
-         this.type = type;
-         this.text = text;
-         this.colors = colors;
-         this.score = score;
-      }
-   }
+
    const showSettings = ref(false);
    const boardEditorRef = ref<InstanceType<typeof BoardEditor> | null>(null);
    const moveIndicator = ref<number>(1);
@@ -147,8 +150,8 @@
       }
       return answer;
    });
-   const historyList: Ref<HistoryEntry[]> = ref(new Array<HistoryEntry>());
-   const selectedHistoryIndex: Ref<number | null> = ref(null);
+   const historyTree: Ref<HistoryTreeType> = shallowRef(createEmptyTree());
+   const selectedNodeId: Ref<string | null> = ref(null);
    const needLetters = ref('');
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
@@ -176,8 +179,8 @@
    const selectedGameId: Ref<string | null> = ref(null);
 
    interface StoredGameState {
-      historyList: HistoryEntry[];
-      selectedHistoryIndex: number | null;
+      historyNodes: HistoryNode[];
+      selectedNodeId: string | null;
       moveIndicator: number;
       id: string;
       createdAt: number;
@@ -201,8 +204,8 @@
       if (idx !== -1) {
          games.value[idx] = {
             ...games.value[idx]!,
-            historyList: historyList.value,
-            selectedHistoryIndex: selectedHistoryIndex.value,
+            historyNodes: treeToArray(historyTree.value),
+            selectedNodeId: selectedNodeId.value,
             moveIndicator: moveIndicator.value,
          };
       }
@@ -256,24 +259,33 @@
    }
 
    function loadGameState(game: StoredGameState) {
-      historyList.value = game.historyList.map(
-         (h) => new HistoryEntry(h.type, h.text, h.colors, h.score)
-      );
-      selectedHistoryIndex.value = game.selectedHistoryIndex;
+      historyTree.value = arrayToTree(game.historyNodes);
+      selectedNodeId.value = game.selectedNodeId;
       moveIndicator.value = game.moveIndicator;
 
-      // Extract board letters from initial history entry
-      const initialEntry = historyList.value[0];
-      if (initialEntry && initialEntry.type === 0) {
-         boardLetters.value = initialEntry.text.toUpperCase();
+      // Extract board letters from root node
+      const rootNode = historyTree.value.nodes.get(historyTree.value.rootId);
+      if (rootNode && rootNode.type === 0) {
+         boardLetters.value = rootNode.text.toUpperCase();
       } else {
          boardLetters.value = '';
       }
 
-      // Set color letters from selected index or last entry
-      const idx = selectedHistoryIndex.value ?? historyList.value.length - 1;
-      if (historyList.value[idx]) {
-         colorLetters.value = historyList.value[idx]!.colors;
+      // Set color letters from selected node or find the last node in main line
+      let selectedNode: HistoryNode | undefined;
+      if (selectedNodeId.value) {
+         selectedNode = historyTree.value.nodes.get(selectedNodeId.value);
+      }
+      if (!selectedNode) {
+         // Find last node in main line (follow first children)
+         let current = rootNode;
+         while (current && current.childIds.length > 0) {
+            current = historyTree.value.nodes.get(current.childIds[0]!);
+         }
+         selectedNode = current;
+      }
+      if (selectedNode) {
+         colorLetters.value = selectedNode.colors;
       } else {
          colorLetters.value = '';
       }
@@ -286,11 +298,13 @@
       // Recalculate scores and reset player state
       if (player.value) {
          player.value.possible(boardLettersUpperCase.value);
-         for (const h of historyList.value) {
-            const s: Score = convertBoardScore(h.colors.toUpperCase());
-            h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
+         for (const node of historyTree.value.nodes.values()) {
+            const s: Score = convertBoardScore(node.colors.toUpperCase());
+            node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
          }
-         const played = historyList.value.slice(1, idx + 1).map((a) => a.text);
+         // Get path to selected node for resetplayed
+         const path = selectedNode ? getPathToNode(historyTree.value, selectedNode.id) : [];
+         const played = path.slice(1).map((n) => n.text);
          player.value.resetplayed(boardLettersUpperCase.value, played);
       }
    }
@@ -313,11 +327,18 @@
       const newId = generateGameId();
       const defaultBoard = useDefault ? 'CONCENTRATEFORLETTERPRESS' : '';
       const defaultColors = useDefault ? 'BBBBBBBBBBBWWWrrRRRRRrrRR' : '';
+
+      // Create tree with root node
+      resetNodeIdCounter(0);
+      const rootNode = createRootNode(defaultBoard, defaultColors, 0);
+      const tree = createEmptyTree();
+      addNodeToTree(tree, rootNode);
+
       const newGame: StoredGameState = {
          id: newId,
          createdAt: Date.now(),
-         historyList: [new HistoryEntry(0, defaultBoard, defaultColors, 0)],
-         selectedHistoryIndex: null,
+         historyNodes: treeToArray(tree),
+         selectedNodeId: null,
          moveIndicator: 1,
       };
       games.value.push(newGame);
@@ -362,48 +383,60 @@
       const gameId = params.get('id');
       const selected = params.get('selected');
       const rawHash = window.location.hash?.startsWith('#') ? window.location.hash.slice(1) : '';
-      let index = 0;
+
       if (rawHash) {
-         const parts = rawHash.split('.').filter(Boolean);
-         const parsed: HistoryEntry[] = [];
-         for (const part of parts) {
-            const [t, text, colors] = part.split('-', 3);
-            if (!t || !text || !colors) continue;
-            const type = t === 'b' ? 1 : t === 'r' ? -1 : 0;
-            parsed.push(new HistoryEntry(type, text, colors, 0));
-         }
-         if (parsed.length > 0) {
-            historyList.value = parsed;
-            if (parsed[0]!.type === 0 && parsed[0]!.text.length === 25) {
-               boardLetters.value = parsed[0]!.text.toUpperCase();
-            }
-            const selectedNum = selected ? Number.parseInt(selected) : parsed.length - 1;
-            index =
-               !Number.isNaN(selectedNum) && selectedNum >= 0 && selectedNum < parsed.length
-                  ? selectedNum
-                  : parsed.length - 1;
+         // Try new format first: {id}-{parentId}-{type}-{text}-{colors}.
+         const tree = parseHashToTree(rawHash);
 
-            colorLetters.value = parsed[index]!.colors;
-            const t = parsed[index]!.type;
-            if (t === 0) {
-               //I believe this assumes history has at least two entries?
-               moveIndicator.value = parsed[index + 1]?.type ?? moveIndicator.value;
+         if (tree.rootId && tree.nodes.size > 0) {
+            historyTree.value = tree;
+
+            const rootNode = tree.nodes.get(tree.rootId);
+            if (rootNode && rootNode.type === 0 && rootNode.text.length === 25) {
+               boardLetters.value = rootNode.text.toUpperCase();
+            }
+
+            // Find selected node
+            let selectedNode: HistoryNode | undefined;
+            if (selected && tree.nodes.has(selected)) {
+               selectedNode = tree.nodes.get(selected);
+               selectedNodeId.value = selected;
             } else {
-               moveIndicator.value = -t;
+               // Default to last node in main line
+               let current = rootNode;
+               while (current && current.childIds.length > 0) {
+                  current = tree.nodes.get(current.childIds[0]!);
+               }
+               selectedNode = current;
+               selectedNodeId.value = selectedNode?.id ?? null;
             }
 
-            selectedHistoryIndex.value = index;
-         }
-         if (player.value) {
-            player.value.possible(boardLettersUpperCase.value);
-            for (const h of historyList.value) {
-               const s: Score = convertBoardScore(h.colors.toUpperCase());
-               h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
+            if (selectedNode) {
+               colorLetters.value = selectedNode.colors;
+               if (selectedNode.type === 0) {
+                  // Root node - check first child for move indicator
+                  const firstChild = selectedNode.childIds[0]
+                     ? tree.nodes.get(selectedNode.childIds[0])
+                     : null;
+                  moveIndicator.value = firstChild?.type ?? 1;
+               } else {
+                  moveIndicator.value = -selectedNode.type;
+               }
             }
-            const played = historyList.value.slice(1, index + 1).map((a) => a.text);
-            player.value.resetplayed(boardLettersUpperCase.value, played);
+
+            if (player.value) {
+               player.value.possible(boardLettersUpperCase.value);
+               for (const node of tree.nodes.values()) {
+                  const s: Score = convertBoardScore(node.colors.toUpperCase());
+                  node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
+               }
+               const path = selectedNode ? getPathToNode(tree, selectedNode.id) : [];
+               const played = path.slice(1).map((n) => n.text);
+               player.value.resetplayed(boardLettersUpperCase.value, played);
+            }
+
+            return gameId;
          }
-         return gameId;
       }
       return null;
    }
@@ -411,14 +444,8 @@
    function updateQueryParams() {
       const params = new URLSearchParams();
       if (selectedGameId.value) params.set('id', selectedGameId.value);
-      if (selectedHistoryIndex.value !== null)
-         params.set('selected', selectedHistoryIndex.value.toString());
-      const historyFragment = historyList.value
-         .map((h) => {
-            const t = h.type === 1 ? 'b' : h.type === -1 ? 'r' : 'i';
-            return `${t}-${h.text}-${h.colors}.`;
-         })
-         .join('');
+      if (selectedNodeId.value !== null) params.set('selected', selectedNodeId.value);
+      const historyFragment = serializeTreeToHash(historyTree.value);
       const newUrl = `${window.location.pathname}?${params.toString()}#${historyFragment}`;
       history.replaceState(null, '', newUrl);
    }
@@ -458,8 +485,8 @@
          if (existingGame) {
             // Update existing game with URL data
             selectedGameId.value = urlGameId;
-            existingGame.historyList = historyList.value;
-            existingGame.selectedHistoryIndex = selectedHistoryIndex.value;
+            existingGame.historyNodes = treeToArray(historyTree.value);
+            existingGame.selectedNodeId = selectedNodeId.value;
             existingGame.moveIndicator = moveIndicator.value;
          } else {
             // Create new game from URL data
@@ -467,8 +494,8 @@
             const newGame: StoredGameState = {
                id: newId,
                createdAt: Date.now(),
-               historyList: historyList.value,
-               selectedHistoryIndex: selectedHistoryIndex.value,
+               historyNodes: treeToArray(historyTree.value),
+               selectedNodeId: selectedNodeId.value,
                moveIndicator: moveIndicator.value,
             };
             games.value.push(newGame);
@@ -502,17 +529,23 @@
    });
 
    function clearHistory() {
-      historyList.value = new Array<HistoryEntry>();
       let score = 0;
       if (player.value) {
          player.value.possible(boardLettersUpperCase.value);
          let s: Score = convertBoardScore(boardColorsDefended.value);
          score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
       }
-      historyList.value.push(
-         new HistoryEntry(0, boardLettersUpperCase.value, boardColorsDefended.value, score)
+
+      resetNodeIdCounter(0);
+      const rootNode = createRootNode(
+         boardLettersUpperCase.value,
+         boardColorsDefended.value,
+         score
       );
-      selectedHistoryIndex.value = null;
+      const tree = createEmptyTree();
+      addNodeToTree(tree, rootNode);
+      historyTree.value = tree;
+      selectedNodeId.value = null;
    }
 
    function clearHistorySyncState() {
@@ -587,12 +620,25 @@
       // Recalculate scores for current game
       if (player.value && boardLetters.value.length === 25) {
          player.value.possible(boardLettersUpperCase.value);
-         for (const h of historyList.value) {
-            const s: Score = convertBoardScore(h.colors.toUpperCase());
-            h.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
+         for (const node of historyTree.value.nodes.values()) {
+            const s: Score = convertBoardScore(node.colors.toUpperCase());
+            node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
          }
-         const idx = selectedHistoryIndex.value ?? historyList.value.length - 1;
-         const played = historyList.value.slice(1, idx + 1).map((a) => a.text);
+         // Get path to selected node
+         let selectedNode: HistoryNode | undefined;
+         if (selectedNodeId.value) {
+            selectedNode = historyTree.value.nodes.get(selectedNodeId.value);
+         }
+         if (!selectedNode) {
+            // Find last node in main line
+            let current = historyTree.value.nodes.get(historyTree.value.rootId);
+            while (current && current.childIds.length > 0) {
+               current = historyTree.value.nodes.get(current.childIds[0]!);
+            }
+            selectedNode = current;
+         }
+         const path = selectedNode ? getPathToNode(historyTree.value, selectedNode.id) : [];
+         const played = path.slice(1).map((n) => n.text);
          player.value.resetplayed(boardLettersUpperCase.value, played);
          runSearch();
       }
@@ -603,17 +649,28 @@
       const word = (play.word ?? '').toUpperCase();
       const score = play.score ?? 0;
 
-      if (selectedHistoryIndex.value !== null) {
-         historyList.value = historyList.value.slice(0, selectedHistoryIndex.value + 1);
-         player.value!.resetplayed(
-            boardLettersUpperCase.value,
-            historyList.value.slice(1, historyList.value.length).map((a) => a.text)
-         );
+      // Determine parent node
+      let parentId: string;
+      if (selectedNodeId.value !== null) {
+         parentId = selectedNodeId.value;
+      } else {
+         // Find last node in main line to use as parent
+         let current = historyTree.value.nodes.get(historyTree.value.rootId);
+         while (current && current.childIds.length > 0) {
+            current = historyTree.value.nodes.get(current.childIds[0]!);
+         }
+         parentId = current?.id ?? historyTree.value.rootId;
       }
 
-      historyList.value.push(new HistoryEntry(moveIndicator.value, word, colors, score));
+      // Create new node and add to tree
+      const newNode = createMoveNode(moveIndicator.value, word, colors, score, parentId);
+      addNodeToTree(historyTree.value, newNode);
+
+      // Trigger reactivity by creating new tree reference
+      historyTree.value = { ...historyTree.value, nodes: new Map(historyTree.value.nodes) };
+
       player.value!.playword(boardLettersUpperCase.value, word);
-      selectedHistoryIndex.value = historyList.value.length - 1;
+      selectedNodeId.value = newNode.id;
       colorLetters.value = colors;
       moveIndicator.value = -moveIndicator.value;
       searchResults.value = [];
@@ -623,21 +680,90 @@
       syncState();
    }
 
-   function onHistoryRowClicked(entry: HistoryEntry, idx: number) {
-      selectedHistoryIndex.value = idx >= 0 ? idx : null;
-      colorLetters.value = entry.colors;
-      // If the row corresponds to a move by Blue(1)/Red(-1), next to move is the opposite.
-      if (entry.type === 0) {
-         if (historyList.value.length > 1) {
-            moveIndicator.value = historyList.value[1]!.type;
-         }
-      } else {
-         moveIndicator.value = entry.type * -1;
+   function deleteNodeAndChildren(nodeId: string): void {
+      const node = historyTree.value.nodes.get(nodeId);
+      if (!node) return;
+
+      // Recursively delete all children first
+      for (const childId of [...node.childIds]) {
+         deleteNodeAndChildren(childId);
       }
-      player.value?.resetplayed(
-         boardLettersUpperCase.value,
-         historyList.value.slice(1, idx + 1).map((a) => a.text)
-      );
+
+      // Remove this node from parent's childIds
+      if (node.parentId) {
+         const parent = historyTree.value.nodes.get(node.parentId);
+         if (parent) {
+            const idx = parent.childIds.indexOf(nodeId);
+            if (idx !== -1) {
+               parent.childIds.splice(idx, 1);
+            }
+         }
+      }
+
+      // Remove node from tree
+      historyTree.value.nodes.delete(nodeId);
+   }
+
+   function onHistoryNodeDelete(node: HistoryNode) {
+      // Don't allow deleting root node
+      if (node.type === 0) return;
+
+      const parentId = node.parentId;
+
+      // If selected node is being deleted or is a descendant, move selection to parent
+      if (selectedNodeId.value) {
+         const path = getPathToNode(historyTree.value, selectedNodeId.value);
+         const isSelectedOrDescendant = path.some((n) => n.id === node.id);
+         if (isSelectedOrDescendant) {
+            selectedNodeId.value = parentId;
+            const parentNode = parentId ? historyTree.value.nodes.get(parentId) : null;
+            if (parentNode) {
+               colorLetters.value = parentNode.colors;
+               if (parentNode.type === 0) {
+                  const firstChild = parentNode.childIds[0]
+                     ? historyTree.value.nodes.get(parentNode.childIds[0])
+                     : null;
+                  moveIndicator.value = firstChild?.type ?? 1;
+               } else {
+                  moveIndicator.value = -parentNode.type;
+               }
+            }
+         }
+      }
+
+      // Delete the node and all its children
+      deleteNodeAndChildren(node.id);
+
+      // Trigger reactivity
+      historyTree.value = { ...historyTree.value, nodes: new Map(historyTree.value.nodes) };
+
+      // Reset player state
+      if (player.value && selectedNodeId.value) {
+         const path = getPathToNode(historyTree.value, selectedNodeId.value);
+         const played = path.slice(1).map((n) => n.text);
+         player.value.resetplayed(boardLettersUpperCase.value, played);
+      }
+
+      syncState();
+   }
+
+   function onHistoryNodeClicked(node: HistoryNode) {
+      selectedNodeId.value = node.id;
+      colorLetters.value = node.colors;
+
+      // If the node is root (type 0), check first child for move indicator
+      if (node.type === 0) {
+         const firstChild = node.childIds[0] ? historyTree.value.nodes.get(node.childIds[0]) : null;
+         moveIndicator.value = firstChild?.type ?? 1;
+      } else {
+         moveIndicator.value = -node.type;
+      }
+
+      // Reset played words to path up to this node
+      const path = getPathToNode(historyTree.value, node.id);
+      const played = path.slice(1).map((n) => n.text);
+      player.value?.resetplayed(boardLettersUpperCase.value, played);
+
       updateQueryParams();
       saveToLocalStorage();
       runSearch();
@@ -704,13 +830,14 @@
                "
             />
          </div>
-         <HistoryTable
-            :historyList="historyList"
+         <HistoryTree
+            :historyTree="historyTree"
             :boardLetters="boardLettersUpperCase"
             :theme="theme"
             :boardPreviewCellSize="boardPreviewCellSize"
-            :selectedIndex="selectedHistoryIndex"
-            @row-click="onHistoryRowClicked"
+            :selectedNodeId="selectedNodeId"
+            @node-click="onHistoryNodeClicked"
+            @node-delete="onHistoryNodeDelete"
          />
       </div>
       <div class="right-pane">
