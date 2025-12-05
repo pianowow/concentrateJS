@@ -1,6 +1,7 @@
 <script setup lang="ts">
    import { ref, computed } from 'vue';
    import type { ThemeConfig } from '../ts/board';
+   import { scoreToColors, convertBoardScore } from '../ts/board';
    import BoardGrid from './BoardGrid.vue';
 
    interface HistoryNode {
@@ -62,7 +63,7 @@
       // Find selected node or last node in main line
       if (game.selectedNodeId) {
          const selected = game.historyNodes.find((n) => n.id === game.selectedNodeId);
-         if (selected) return selected.colors;
+         if (selected) return scoreToColors(convertBoardScore(selected.colors));
       }
       // Follow main line (first children) to find last node
       const nodeMap = new Map(game.historyNodes.map((n) => [n.id, n]));
@@ -70,7 +71,7 @@
       while (current && current.childIds.length > 0) {
          current = nodeMap.get(current.childIds[0]!);
       }
-      return current?.colors ?? '';
+      return scoreToColors(convertBoardScore(current?.colors ?? ''));
    }
 
    function gameOver(game: StoredGameState): boolean {

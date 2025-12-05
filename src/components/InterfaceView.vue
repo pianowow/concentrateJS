@@ -25,6 +25,7 @@
       mapsToColors,
       Score,
       convertBoardScore,
+      reducedColors,
    } from '../ts/board';
    import { roundTo } from '../ts/util';
    import {
@@ -673,7 +674,7 @@
    }
 
    function addPlayToHistory(play: Play) {
-      const colors = mapsToColors(play.blue_map, play.red_map);
+      const colors = reducedColors(mapsToColors(play.blue_map, play.red_map));
       const word = (play.word ?? '').toUpperCase();
       const score = play.score ?? 0;
 

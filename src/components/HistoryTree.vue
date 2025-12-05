@@ -3,6 +3,7 @@
    import { ref, toRefs, computed, watch } from 'vue';
    import BoardGrid from './BoardGrid.vue';
    import type { ThemeConfig } from '../ts/board';
+   import { scoreToColors, convertBoardScore } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
    import {
       type HistoryTree as HistoryTreeType,
@@ -185,7 +186,7 @@
                <div class="board-cell">
                   <BoardGrid
                      :letters="boardLetters"
-                     :colors="row.node.colors"
+                     :colors="scoreToColors(convertBoardScore(row.node.colors))"
                      :theme="theme"
                      :size="boardPreviewCellSize"
                   />

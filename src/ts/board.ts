@@ -187,6 +187,10 @@ export function mapsToColors(blue: number, red: number): string {
    return s;
 }
 
+export function scoreToColors(s: Score): string {
+   return mapsToColors(s.blue, s.red);
+}
+
 /**
  * Returns number of set bits of a number
  * ex.: 5 is 101 in binary, so it would return 2 for the two set 1s.
@@ -265,4 +269,41 @@ export function centroid(map: number) {
       map ^= lsb;
    }
    return new Vector(xsum / cnt, ysum / cnt);
+}
+
+export function reducedColors(colors: string) {
+   colors = colors.toLowerCase();
+   let colorIdx = 0;
+   let out = '';
+   let prevColor = '';
+   let prevCount = 1;
+   let outCount = 0;
+   while (outCount < 25) {
+      const color = colors.charAt(colorIdx);
+      if (prevColor != color || !color) {
+         if (prevCount > 9) {
+            out += prevColor + '9';
+            prevCount -= 9;
+            outCount += 9;
+         } else if (prevCount > 2) {
+            out += prevColor + prevCount;
+            prevCount = 1;
+            prevColor = color;
+            outCount += prevCount;
+         } else if (prevCount === 2) {
+            out += prevColor + prevColor;
+            prevCount = 1;
+            prevColor = color;
+            outCount += prevCount;
+         } else if (prevCount === 1) {
+            out += prevColor;
+            prevColor = color;
+            outCount += 1;
+         }
+      } else {
+         prevCount += 1;
+      }
+      colorIdx += 1;
+   }
+   return out;
 }
