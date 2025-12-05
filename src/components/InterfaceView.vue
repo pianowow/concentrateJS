@@ -74,8 +74,10 @@
    });
    const availableThemes = Object.keys(themes) as ThemeName[];
    onKeyStroke('t', () => {
-      const themeIdx = availableThemes.indexOf(themeSelected.value);
-      themeSelected.value = availableThemes[(themeIdx + 1) % availableThemes.length]!;
+      if (!isInputFocused.value) {
+         const themeIdx = availableThemes.indexOf(themeSelected.value);
+         themeSelected.value = availableThemes[(themeIdx + 1) % availableThemes.length]!;
+      }
    });
 
    const availableWordLists = [
