@@ -57,6 +57,8 @@
    function computeFinish(play: Play): string {
       if ((play.score > 999 && move.value == 1) || (play.score < -999 && move.value == -1)) {
          return '<span title="Winning play">🏆</span>';
+      } else if ((play.score > 999 && move.value == -1) || (play.score < -999 && move.value == 1)) {
+         return '<span title="Losing play">💀</span>';
       } else {
          if (play.ending_soon === true) {
             if (play.losing) {
