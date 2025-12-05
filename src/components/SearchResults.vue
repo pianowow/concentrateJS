@@ -305,7 +305,8 @@
    }
 
    .word-text {
-      font-weight: 500;
+      font-family: 'Roboto Mono', monospace;
+      font-weight: 400;
    }
 
    .score-bar {

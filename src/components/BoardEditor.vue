@@ -203,7 +203,7 @@
       padding: 20px 12px 8px 12px;
       background-color: transparent;
       color: v-bind('theme.defaultText');
-      font: inherit;
+      font-family: 'Roboto Mono', monospace;
       font-size: 16px;
       border: none;
       border-radius: 0;

@@ -2,7 +2,8 @@
 html,
 body {
    height: 100%;
-   margin: 0; /* remove default 8px body margin that causes scrollbars */
+   margin: 0;
+   font-family: 'Fira Sans', sans-serif;
 }
 
 *,
@@ -14,4 +15,21 @@ body {
 /* Ensure the app root can stretch */
 #app {
    min-height: 100%;
+}
+
+/* roboto-mono-regular - latin */
+@font-face {
+   font-display: swap;
+   font-family: 'Roboto Mono';
+   font-style: normal;
+   font-weight: 400;
+   src: url('/fonts/roboto-mono-v31-latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* fira-sans-regular - latin */
+@font-face {
+   font-display: swap;
+   font-family: 'Fira Sans';
+   font-style: normal;
+   font-weight: 400;
+   src: url('/fonts/fira-sans-v18-latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
 }
