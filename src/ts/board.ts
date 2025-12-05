@@ -32,6 +32,36 @@ export class Themes {
       redText: 'rgb(49,30,28)',
       defendedRedText: 'rgb(51,13,9)',
    };
+   Pop: ThemeConfig = {
+      defaultColor: 'rgb(55,55,55)',
+      defaultColor2: 'rgb(57,57,57)',
+      blueName: 'Green',
+      blue: 'rgb(87,152,24)',
+      defendedBlue: 'rgb(126,255,0)',
+      redName: 'Pink',
+      red: 'rgb(152,24,123)',
+      defendedRed: 'rgb(255,0,198)',
+      defaultText: 'rgb(215,215,215)',
+      blueText: 'rgb(221,234,208)',
+      defendedBlueText: 'rgb(25,51,0)',
+      redText: 'rgb(234,208,228)',
+      defendedRedText: 'rgb(51,0,39)',
+   };
+   Retro: ThemeConfig = {
+      defaultColor: 'rgb(243,228,191)',
+      defaultColor2: 'rgb(241,226,189)',
+      blueName: 'Purple',
+      blue: 'rgb(195,136,226)',
+      defendedBlue: 'rgb(140,37,255)',
+      redName: 'Red',
+      red: 'rgb(244,166,133)',
+      defendedRed: 'rgb(237,97,70)',
+      defaultText: 'rgb(48,45,37)',
+      blueText: 'rgb(39,27,45)',
+      defendedBlueText: 'rgb(232,211,255)',
+      redText: 'rgb(48,33,26)',
+      defendedRedText: 'rgb(47,19,14)',
+   };
    Dark: ThemeConfig = {
       defaultColor: 'rgb(55,55,55)',
       defaultColor2: 'rgb(57,57,57)',
@@ -46,21 +76,6 @@ export class Themes {
       defendedBlueText: 'rgb(0,37,51)',
       redText: 'rgb(234,215,213)',
       defendedRedText: 'rgb(51,13,9)',
-   };
-   Contrast: ThemeConfig = {
-      defaultColor: 'rgb(247,247,247)',
-      defaultColor2: 'rgb(244,244,244)',
-      blueName: 'Green',
-      blue: 'rgb(143,255,127)',
-      defendedBlue: 'rgb(32,255,0)',
-      redName: 'Black',
-      red: 'rgb(127,127,127)',
-      defendedRed: 'rgb(0,0,0)',
-      defaultText: 'rgb(48,48,48)',
-      blueText: 'rgb(28,51,25)',
-      defendedBlueText: 'rgb(6,51,0)',
-      redText: 'rgb(25,25,25)',
-      defendedRedText: 'rgb(204,204,204)',
    };
    Forest: ThemeConfig = {
       defaultColor: 'rgb(217,223,209)',
@@ -107,35 +122,20 @@ export class Themes {
       redText: 'rgb(34,28,28)',
       defendedRedText: 'rgb(221,215,213)',
    };
-   Pop: ThemeConfig = {
-      defaultColor: 'rgb(55,55,55)',
-      defaultColor2: 'rgb(57,57,57)',
+   Contrast: ThemeConfig = {
+      defaultColor: 'rgb(247,247,247)',
+      defaultColor2: 'rgb(244,244,244)',
       blueName: 'Green',
-      blue: 'rgb(87,152,24)',
-      defendedBlue: 'rgb(126,255,0)',
-      redName: 'Pink',
-      red: 'rgb(152,24,123)',
-      defendedRed: 'rgb(255,0,198)',
-      defaultText: 'rgb(215,215,215)',
-      blueText: 'rgb(221,234,208)',
-      defendedBlueText: 'rgb(25,51,0)',
-      redText: 'rgb(234,208,228)',
-      defendedRedText: 'rgb(51,0,39)',
-   };
-   Retro: ThemeConfig = {
-      defaultColor: 'rgb(243,228,191)',
-      defaultColor2: 'rgb(241,226,189)',
-      blueName: 'Purple',
-      blue: 'rgb(195,136,226)',
-      defendedBlue: 'rgb(140,37,255)',
-      redName: 'Red',
-      red: 'rgb(244,166,133)',
-      defendedRed: 'rgb(237,97,70)',
-      defaultText: 'rgb(48,45,37)',
-      blueText: 'rgb(39,27,45)',
-      defendedBlueText: 'rgb(232,211,255)',
-      redText: 'rgb(48,33,26)',
-      defendedRedText: 'rgb(47,19,14)',
+      blue: 'rgb(143,255,127)',
+      defendedBlue: 'rgb(32,255,0)',
+      redName: 'Black',
+      red: 'rgb(127,127,127)',
+      defendedRed: 'rgb(0,0,0)',
+      defaultText: 'rgb(48,48,48)',
+      blueText: 'rgb(28,51,25)',
+      defendedBlueText: 'rgb(6,51,0)',
+      redText: 'rgb(25,25,25)',
+      defendedRedText: 'rgb(204,204,204)',
    };
 }
 
