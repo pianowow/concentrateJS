@@ -9,6 +9,7 @@
       computed,
       watch,
    } from 'vue';
+   import { onKeyStroke, useActiveElement } from '@vueuse/core';
    import BoardGrid from './BoardGrid.vue';
    import SearchResults from './SearchResults.vue';
    import HistoryTree from './HistoryTree.vue';
@@ -41,6 +42,9 @@
       resetNodeIdCounter,
    } from '../ts/historyTree';
 
+   const activeElement = useActiveElement();
+   const isInputFocused = computed(() => activeElement.value?.tagName === 'INPUT');
+
    const themes = new Themes();
    const themeSelected = ref<ThemeName>('Light');
    const theme = computed<ThemeConfig>(() => themes[themeSelected.value]);
@@ -69,12 +73,25 @@
       saveToLocalStorage();
    });
    const availableThemes = Object.keys(themes) as ThemeName[];
+   onKeyStroke('t', () => {
+      const themeIdx = availableThemes.indexOf(themeSelected.value);
+      themeSelected.value = availableThemes[(themeIdx + 1) % availableThemes.length]!;
+   });
 
    const availableWordLists = [
       { value: 'en', label: 'All words' },
       { value: 'reduced', label: 'Common words' },
    ];
    const wordListSelected = ref<string>('en');
+   onKeyStroke('w', () => {
+      if (!isInputFocused.value) {
+         if (wordListSelected.value === 'en') {
+            wordListSelected.value = 'reduced';
+         } else {
+            wordListSelected.value = 'en';
+         }
+      }
+   });
    const useBadWords = ref<boolean>(false);
    watch(wordListSelected, async () => {
       saveToLocalStorage();
@@ -86,6 +103,15 @@
    });
 
    const showSettings = ref(false);
+   onKeyStroke(
+      's',
+      () => {
+         if (!isInputFocused.value) {
+            showSettings.value = !showSettings.value;
+         }
+      },
+      { passive: true }
+   );
    const boardEditorRef = ref<InstanceType<typeof BoardEditor> | null>(null);
    const moveIndicator = ref<number>(1);
    const boardLetters = ref('');
