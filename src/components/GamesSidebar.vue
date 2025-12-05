@@ -142,33 +142,44 @@
                @drop="onDrop"
                @dragend="onDragEnd"
             >
-               <div v-if="!gameOver(game)">
-                  <div
-                     v-if="game.moveIndicator == 1"
-                     class="move-indicator move-indicator-blue"
-                  ></div>
-                  <div
-                     v-if="game.moveIndicator == -1"
-                     class="move-indicator move-indicator-red"
-                  ></div>
+               <div class="game-top">
+                  <div v-if="!gameOver(game)">
+                     <div
+                        v-if="game.moveIndicator == 1"
+                        class="move-indicator move-indicator-blue"
+                     ></div>
+                     <div
+                        v-if="game.moveIndicator == -1"
+                        class="move-indicator move-indicator-red"
+                     ></div>
+                  </div>
+                  <div v-else>
+                     <div class="move-indicator"></div>
+                  </div>
+                  <BoardGrid
+                     :letters="getGameBoardLetters(game)"
+                     :colors="getGameCurrentColors(game)"
+                     :theme="theme"
+                     :size="previewCellSize"
+                  />
+                  <button
+                     class="delete-game-btn"
+                     @click.stop="emit('deleteGame', game.id)"
+                     title="Delete game"
+                     v-if="games.length > 1"
+                  >
+                     &times;
+                  </button>
                </div>
-               <div v-else>
-                  <div class="move-indicator"></div>
+               <div class="score">
+                  <span class="blue-score">{{
+                     getGameCurrentColors(game).toUpperCase().split('B').length - 1
+                  }}</span>
+                  -
+                  <span class="red-score">{{
+                     getGameCurrentColors(game).toUpperCase().split('R').length - 1
+                  }}</span>
                </div>
-               <BoardGrid
-                  :letters="getGameBoardLetters(game)"
-                  :colors="getGameCurrentColors(game)"
-                  :theme="theme"
-                  :size="previewCellSize"
-               />
-               <button
-                  class="delete-game-btn"
-                  @click.stop="emit('deleteGame', game.id)"
-                  title="Delete game"
-                  v-if="games.length > 1"
-               >
-                  &times;
-               </button>
             </div>
             <button class="new-game-btn" @click="emit('createGame')" title="New Game">+</button>
          </div>
@@ -226,7 +237,7 @@
       color: v-bind('theme.defaultText');
       font-size: 24px;
       width: calc(v-bind('previewCellSize') * 5px + 22px);
-      height: calc(v-bind('previewCellSize') * 5px + 15px);
+      height: calc(v-bind('previewCellSize') * 5px + 26px);
       flex-shrink: 0;
       border-radius: 6px;
       cursor: pointer;
@@ -255,12 +266,15 @@
       padding-right: 4px;
       scrollbar-color: v-bind('theme.defaultText') transparent;
    }
-
-   .game-item {
+   .game-top {
       display: flex;
       flex-direction: row;
       gap: 5px;
-      height: calc(v-bind('props.previewCellSize') * 5px + 15px);
+   }
+   .game-item {
+      display: flex;
+      flex-direction: column;
+      height: calc(v-bind('props.previewCellSize') * 5px + 26px);
       position: relative;
       padding: 5px;
       border: 2px solid transparent;
@@ -286,7 +300,6 @@
    .move-indicator {
       height: calc(v-bind('previewCellSize') * 5px);
       width: 2px;
-      margin-bottom: 6px;
    }
 
    .move-indicator-blue {
@@ -318,7 +331,18 @@
    .game-item:hover .delete-game-btn {
       display: flex;
    }
-
+   .score {
+      display: flex;
+      justify-content: center;
+      gap: 2px;
+      font-size: 14px;
+   }
+   .blue-score {
+      color: v-bind('theme.defendedBlue');
+   }
+   .red-score {
+      color: v-bind('theme.defendedRed');
+   }
    .settings-btn {
       background: transparent;
       border: none;
@@ -349,7 +373,9 @@
          padding-right: 0;
          padding-bottom: 4px;
       }
-
+      .score {
+         font-size: 11px;
+      }
       .settings-btn {
          position: absolute;
          top: 8px;
