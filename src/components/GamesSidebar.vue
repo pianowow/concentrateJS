@@ -191,7 +191,7 @@
 
 <style scoped>
    .menu-pane {
-      width: 195px;
+      width: 183px;
       display: flex;
       flex-direction: column;
       align-items: stretch;
@@ -334,7 +334,7 @@
       transition: background-color 0.2s ease;
    }
 
-   @media (max-width: 1150px) {
+   @media (max-width: 900px) {
       .menu-pane {
          width: 100%;
          flex: 0 0 auto;

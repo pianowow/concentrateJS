@@ -172,7 +172,7 @@
    const navPreviewCellSize = computed(() => (isMobile.value ? 9 : 25));
 
    function updateIsMobile() {
-      isMobile.value = window.innerWidth <= 1150;
+      isMobile.value = window.innerWidth <= 900;
    }
    const LOCAL_STORAGE_KEY = 'concentrate-state';
    const games: Ref<StoredGameState[]> = ref([]);
@@ -875,7 +875,6 @@
    .layout {
       display: flex;
       height: 100dvh;
-      gap: 8px;
       width: 100%;
    }
    .left-pane {
@@ -887,7 +886,7 @@
       min-height: 0;
       width: 50%;
       height: 100dvh;
-      padding: 8px;
+      padding: 6px;
    }
    .board-container {
       display: flex;
@@ -903,7 +902,7 @@
       width: 50%;
       height: 100dvh;
       color: var(--theme-default-text);
-      padding: 8px;
+      padding: 6px;
    }
    h3,
    h4 {
@@ -911,7 +910,7 @@
       margin-bottom: 6px;
    }
 
-   @media (max-width: 1150px) {
+   @media (max-width: 900px) {
       .left-pane,
       .right-pane {
          flex: 0 0 auto;

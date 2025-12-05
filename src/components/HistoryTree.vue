@@ -506,7 +506,7 @@
       cursor: default;
    }
 
-   @media (max-width: 1150px) {
+   @media (max-width: 900px) {
       .history-grid {
          flex: 0 0 auto;
       }
