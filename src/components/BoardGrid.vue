@@ -21,7 +21,7 @@
 </script>
 
 <template>
-   <div class="board-wrapper">
+   <div class="board-wrapper" :style="{ height: size * 5 + 'px' }">
       <BoardGridRow
          v-for="(rowLetters, index) in letterRows"
          :key="index"

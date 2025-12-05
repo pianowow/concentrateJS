@@ -73,6 +73,19 @@
       return current?.colors ?? '';
    }
 
+   function gameOver(game: StoredGameState): boolean {
+      if (game.selectedNodeId) {
+         const selected = game.historyNodes.find((n) => n.id === game.selectedNodeId);
+         if (selected) return !selected.colors.toUpperCase().includes('W');
+      }
+      const nodeMap = new Map(game.historyNodes.map((n) => [n.id, n]));
+      let current = game.historyNodes.find((n) => n.parentId === null);
+      while (current && current.childIds.length > 0) {
+         current = nodeMap.get(current.childIds[0]!);
+      }
+      return !current?.colors.toUpperCase().includes('W');
+   }
+
    function onDragStart(gameId: string) {
       draggedGameId.value = gameId;
    }
@@ -129,6 +142,19 @@
                @drop="onDrop"
                @dragend="onDragEnd"
             >
+               <div v-if="!gameOver(game)">
+                  <div
+                     v-if="game.moveIndicator == 1"
+                     class="move-indicator move-indicator-blue"
+                  ></div>
+                  <div
+                     v-if="game.moveIndicator == -1"
+                     class="move-indicator move-indicator-red"
+                  ></div>
+               </div>
+               <div v-else>
+                  <div class="move-indicator"></div>
+               </div>
                <BoardGrid
                   :letters="getGameBoardLetters(game)"
                   :colors="getGameCurrentColors(game)"
@@ -165,7 +191,7 @@
 
 <style scoped>
    .menu-pane {
-      width: 177px;
+      width: 195px;
       display: flex;
       flex-direction: column;
       align-items: stretch;
@@ -199,8 +225,8 @@
       border: 2px dashed v-bind('theme.defaultText');
       color: v-bind('theme.defaultText');
       font-size: 24px;
-      width: calc(v-bind('previewCellSize') * 5px + 12px);
-      height: calc(v-bind('previewCellSize') * 5px + 12px);
+      width: calc(v-bind('previewCellSize') * 5px + 22px);
+      height: calc(v-bind('previewCellSize') * 5px + 15px);
       flex-shrink: 0;
       border-radius: 6px;
       cursor: pointer;
@@ -222,7 +248,7 @@
    .games-list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 5px;
       overflow-y: auto;
       flex: 1 1 auto;
       min-height: 0;
@@ -231,8 +257,12 @@
    }
 
    .game-item {
+      display: flex;
+      flex-direction: row;
+      gap: 5px;
+      height: calc(v-bind('props.previewCellSize') * 5px + 15px);
       position: relative;
-      padding: 6px;
+      padding: 5px;
       border: 2px solid transparent;
       border-radius: 6px;
       cursor: pointer;
@@ -251,6 +281,20 @@
    .game-item.dragging {
       opacity: 0.6;
       border-color: v-bind('theme.blue');
+   }
+
+   .move-indicator {
+      height: calc(v-bind('previewCellSize') * 5px);
+      width: 2px;
+      margin-bottom: 6px;
+   }
+
+   .move-indicator-blue {
+      background-color: v-bind('theme.defendedBlue');
+   }
+
+   .move-indicator-red {
+      background-color: v-bind('theme.defendedRed');
    }
 
    .delete-game-btn {
