@@ -837,7 +837,7 @@
                :letters="boardLettersUpperCase"
                :colors="boardColorsDefended"
                :theme="theme"
-               :size="70"
+               :size="60"
             />
             <BoardEditor
                ref="boardEditorRef"

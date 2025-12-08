@@ -100,7 +100,7 @@
 <style scoped>
    .board-edit {
       padding-top: 4px;
-      width: 350px;
+      width: 300px;
       text-align: left;
    }
 
@@ -128,13 +128,12 @@
 
    .text-field {
       position: relative;
-      width: 350px;
+      width: 300px;
       margin-bottom: 12px;
    }
 
    .select-field {
       position: relative;
-      width: 350px;
       margin-bottom: 12px;
    }
 
