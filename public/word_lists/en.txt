@@ -251953,6 +251953,7 @@ spritzing
 sproat
 sproats
 sprocket
+sprocketed
 sprockets
 sprod
 sprods
