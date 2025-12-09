@@ -2,7 +2,6 @@
    // Component: HistoryTree
    import { ref, toRefs, computed, watch } from 'vue';
    import BoardGrid from './BoardGrid.vue';
-   import type { ThemeConfig } from '../ts/board';
    import { scoreToColors, convertBoardScore } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
    import {
@@ -15,7 +14,6 @@
    const props = defineProps<{
       historyTree: HistoryTreeType;
       boardLetters: string;
-      theme: ThemeConfig;
       boardPreviewCellSize: number;
       selectedNodeId: string | null;
    }>();
@@ -25,7 +23,7 @@
       (e: 'node-delete', node: HistoryNode): void;
    }>();
 
-   const { historyTree, boardLetters, theme, boardPreviewCellSize, selectedNodeId } = toRefs(props);
+   const { historyTree, boardLetters, boardPreviewCellSize, selectedNodeId } = toRefs(props);
 
    // Pager state (local to this component)
    const pageSize = ref(20);
@@ -125,14 +123,10 @@
                <!-- Move indicator -->
                <div class="move-cell">
                   <div
-                     class="move-indicator"
-                     :style="{
-                        backgroundColor:
-                           row.node.type === 1
-                              ? theme.defendedBlue
-                              : row.node.type === -1
-                                ? theme.defendedRed
-                                : theme.defaultColor,
+                     :class="{
+                        'move-indicator': true,
+                        'move-indicator-red': row.node.type == -1,
+                        'move-indicator-blue': row.node.type == 1,
                      }"
                   ></div>
                </div>
@@ -187,7 +181,6 @@
                   <BoardGrid
                      :letters="boardLetters"
                      :colors="scoreToColors(convertBoardScore(row.node.colors))"
-                     :theme="theme"
                      :size="boardPreviewCellSize"
                   />
                </div>
@@ -277,7 +270,7 @@
       min-height: 0;
       display: flex;
       flex-direction: column;
-      border: 1px solid v-bind('theme.defaultText');
+      border: 1px solid var(--theme-default-text);
       border-radius: 6px;
       overflow: hidden;
    }
@@ -286,23 +279,23 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: auto;
-      scrollbar-color: v-bind('theme.defaultText') transparent;
+      scrollbar-color: var(--theme-default-text) transparent;
    }
 
    .history-row {
       display: flex;
       align-items: center;
       cursor: pointer;
-      background: v-bind('theme.defaultColor');
+      background: var(--theme-default-color);
       position: relative;
    }
 
    .history-row:nth-child(even) {
-      background: v-bind('theme.defaultColor2');
+      background: var(--theme-default-color2);
    }
 
    .history-row.selected {
-      background: v-bind('theme.blue');
+      background: var(--theme-blue);
    }
 
    .history-row:hover {
@@ -318,9 +311,9 @@
       right: 4px;
       top: 50%;
       transform: translateY(-50%);
-      background: v-bind('theme.red');
+      background: var(--theme-red);
       border: none;
-      color: v-bind('theme.redText');
+      color: var(--theme-red-text);
       font-size: 14px;
       width: 20px;
       height: 20px;
@@ -357,7 +350,7 @@
       left: 50%;
       top: 0;
       bottom: 0;
-      border-left: 2px solid v-bind('theme.defaultText');
+      border-left: 2px solid var(--theme-default-text);
       transform: translateX(-50%);
       opacity: 0.4;
    }
@@ -369,7 +362,7 @@
       left: 50%;
       top: 0;
       bottom: 0;
-      border-left: 2px solid v-bind('theme.defaultText');
+      border-left: 2px solid var(--theme-default-text);
       transform: translateX(-50%);
       opacity: 0.4;
    }
@@ -381,7 +374,7 @@
       left: 50%;
       top: 50%;
       width: 50%;
-      border-top: 2px solid v-bind('theme.defaultText');
+      border-top: 2px solid var(--theme-default-text);
       opacity: 0.4;
    }
 
@@ -398,7 +391,16 @@
       width: 14px;
       height: 14px;
       border-radius: 3px;
-      border: 1px solid v-bind('theme.defaultText');
+      border: 1px solid var(--theme-default-text);
+      background: var(--theme-default-color);
+   }
+
+   .move-indicator-blue {
+      background: var(--theme-defended-blue);
+   }
+
+   .move-indicator-red {
+      background: var(--theme-defended-red);
    }
 
    /* Word cell */
@@ -424,7 +426,7 @@
       display: flex;
       height: 10px;
       width: 100%;
-      border: 1px solid v-bind('theme.defaultText');
+      border: 1px solid var(--theme-default-text);
       border-radius: 2px;
       overflow: hidden;
       opacity: 0.7;
@@ -434,7 +436,7 @@
       flex: 1;
       display: flex;
       justify-content: flex-end;
-      border-right: 1px solid v-bind('theme.defaultText');
+      border-right: 1px solid var(--theme-default-text);
    }
 
    .score-bar-right {
@@ -453,11 +455,11 @@
    }
 
    .score-fill.blue {
-      background-color: v-bind('theme.defendedBlue');
+      background-color: var(--theme-defended-blue);
    }
 
    .score-fill.red {
-      background-color: v-bind('theme.defendedRed');
+      background-color: var(--theme-defended-red);
    }
 
    /* Board cell */
@@ -486,9 +488,9 @@
    }
 
    .pager-select {
-      border: 1px solid v-bind('theme.defaultColor2');
-      background: v-bind('theme.defaultColor2');
-      color: v-bind('theme.defaultText');
+      border: 1px solid var(--theme-default-color2);
+      background: var(--theme-default-color2);
+      color: var(--theme-default-text);
       border-radius: 4px;
       padding: 2px 6px;
       font: inherit;
@@ -499,7 +501,7 @@
       background: transparent;
       padding: 4px 4px;
       cursor: pointer;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
    }
 
    .pager button:disabled {

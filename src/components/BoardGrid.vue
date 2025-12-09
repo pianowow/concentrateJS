@@ -1,6 +1,6 @@
 <script setup lang="ts">
    import { computed } from 'vue';
-   const props = defineProps(['letters', 'colors', 'theme', 'size']);
+   const props = defineProps(['letters', 'colors', 'size']);
    const letters = computed(() => props.letters.padEnd(25, ' '));
    const colors = computed(() => props.colors.padEnd(25, 'w'));
    const letterRows = computed(() => {

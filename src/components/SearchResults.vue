@@ -1,7 +1,6 @@
 <script setup lang="ts">
    import { ref, toRefs, computed, watch } from 'vue';
    import type { Player, Play } from '../ts/player';
-   import type { ThemeConfig } from '../ts/board';
    import { mapsToColors } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
    import BoardGrid from './BoardGrid.vue';
@@ -9,7 +8,6 @@
    const props = defineProps<{
       boardLetters: string;
       player: Player | null;
-      theme: ThemeConfig;
       searchResults: Play[];
       boardPreviewCellSize: number;
       move: number;
@@ -20,7 +18,7 @@
       (e: 'add-to-history', play: Play): void;
    }>();
 
-   const { boardLetters, player, theme, searchResults, boardPreviewCellSize, move, wordFilter } =
+   const { boardLetters, player, searchResults, boardPreviewCellSize, move, wordFilter } =
       toRefs(props);
 
    // Lightweight pager state
@@ -181,7 +179,6 @@
                         <BoardGrid
                            :letters="boardLetters"
                            :colors="mapsToColors(play.blue_map, play.red_map)"
-                           :theme="theme"
                            :size="boardPreviewCellSize"
                         />
                      </td>
@@ -262,7 +259,7 @@
       min-height: 0;
       display: flex;
       flex-direction: column;
-      border: 1px solid v-bind('theme.defaultText');
+      border: 1px solid var(--theme-default-text);
       border-radius: 6px;
       overflow: hidden;
    }
@@ -271,16 +268,16 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
-      scrollbar-color: v-bind('theme.defaultText') transparent;
+      scrollbar-color: var(--theme-default-text) transparent;
    }
 
    .header-container {
       flex: 0 0 auto;
       overflow-y: scroll;
       scrollbar-color: transparent transparent;
-      background: v-bind('theme.defaultColor2');
+      background: var(--theme-default-color2);
       filter: brightness(1.05);
-      border-bottom: 1px solid v-bind('theme.defaultText');
+      border-bottom: 1px solid var(--theme-default-text);
    }
 
    .col-word {
@@ -315,7 +312,7 @@
       display: flex;
       height: 10px;
       width: 100%;
-      border: 1px solid v-bind('theme.defaultText');
+      border: 1px solid var(--theme-default-text);
       border-radius: 2px;
       overflow: hidden;
       opacity: 0.7;
@@ -325,7 +322,7 @@
       flex: 1;
       display: flex;
       justify-content: flex-end;
-      border-right: 1px solid v-bind('theme.defaultText');
+      border-right: 1px solid var(--theme-default-text);
    }
 
    .score-bar-right {
@@ -344,11 +341,11 @@
    }
 
    .score-fill.blue {
-      background-color: v-bind('theme.defendedBlue');
+      background-color: var(--theme-defended-blue);
    }
 
    .score-fill.red {
-      background-color: v-bind('theme.defendedRed');
+      background-color: var(--theme-defended-red);
    }
 
    .results-table {
@@ -359,10 +356,10 @@
 
    .results-table thead th {
       background: transparent;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       font-weight: 600;
       padding: 8px 10px;
-      border-right: 1px solid v-bind('theme.defaultText');
+      border-right: 1px solid var(--theme-default-text);
       white-space: nowrap;
    }
 
@@ -382,11 +379,11 @@
 
    .results-table tbody tr {
       cursor: pointer;
-      background: v-bind('theme.defaultColor');
+      background: var(--theme-default-color);
    }
 
    .results-table tbody tr:nth-child(even) {
-      background: v-bind('theme.defaultColor2');
+      background: var(--theme-default-color2);
    }
 
    .results-table tbody tr:hover td {
@@ -397,7 +394,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: v-bind('theme.defaultText');
+      background: var(--theme-default-text);
       opacity: 0.05;
       pointer-events: none;
       z-index: 2;
@@ -421,9 +418,9 @@
    }
 
    .pager-select {
-      border: 1px solid v-bind('theme.defaultColor2');
-      background: v-bind('theme.defaultColor2');
-      color: v-bind('theme.defaultText');
+      border: 1px solid var(--theme-default-color2);
+      background: var(--theme-default-color2);
+      color: var(--theme-default-text);
       border-radius: 4px;
       padding: 2px 6px;
       font: inherit;
@@ -434,7 +431,7 @@
       background: transparent;
       padding: 4px 4px;
       cursor: pointer;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
    }
 
    .pager button:disabled {

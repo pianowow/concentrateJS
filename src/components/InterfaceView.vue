@@ -804,26 +804,23 @@
 </script>
 
 <template>
-   <!-- Settings Modal -->
-   <SettingsModal
-      v-if="showSettings"
-      :theme="theme"
-      :themeSelected="themeSelected"
-      :availableThemes="availableThemes"
-      :wordListSelected="wordListSelected"
-      :availableWordLists="availableWordLists"
-      :useBadWords="useBadWords"
-      @close="showSettings = false"
-      @update:themeSelected="themeSelected = $event as ThemeName"
-      @update:wordListSelected="wordListSelected = $event"
-      @update:useBadWords="useBadWords = $event"
-   />
-
    <div class="layout" :style="themeVars">
+      <!-- Settings Modal -->
+      <SettingsModal
+         v-if="showSettings"
+         :themeSelected="themeSelected"
+         :availableThemes="availableThemes"
+         :wordListSelected="wordListSelected"
+         :availableWordLists="availableWordLists"
+         :useBadWords="useBadWords"
+         @close="showSettings = false"
+         @update:themeSelected="themeSelected = $event as ThemeName"
+         @update:wordListSelected="wordListSelected = $event"
+         @update:useBadWords="useBadWords = $event"
+      />
       <GamesSidebar
          :games="games"
          :selectedGameId="selectedGameId"
-         :theme="theme"
          :previewCellSize="navPreviewCellSize"
          @select-game="selectGame"
          @create-game="createNewGame(false)"
@@ -833,12 +830,7 @@
       />
       <div class="left-pane">
          <div class="board-container">
-            <BoardGrid
-               :letters="boardLettersUpperCase"
-               :colors="boardColorsDefended"
-               :theme="theme"
-               :size="60"
-            />
+            <BoardGrid :letters="boardLettersUpperCase" :colors="boardColorsDefended" :size="60" />
             <BoardEditor
                ref="boardEditorRef"
                :theme="theme"
@@ -862,7 +854,6 @@
          <HistoryTree
             :historyTree="historyTree"
             :boardLetters="boardLettersUpperCase"
-            :theme="theme"
             :boardPreviewCellSize="boardPreviewCellSize"
             :selectedNodeId="selectedNodeId"
             @node-click="onHistoryNodeClicked"
@@ -872,7 +863,6 @@
       <div class="right-pane">
          <h3>Search Results</h3>
          <SearchFilters
-            :theme="theme"
             :needLetters="needLetters"
             :notLetters="notLetters"
             :wordFilter="wordFilter"
@@ -889,7 +879,6 @@
          <SearchResults
             :boardLetters="boardLettersUpperCase"
             :player="player"
-            :theme="theme"
             :searchResults="searchResults"
             :boardPreviewCellSize="boardPreviewCellSize"
             :move="moveIndicator"

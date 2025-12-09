@@ -106,7 +106,7 @@
 
    .filters-toggle {
       background: transparent;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       border: none;
       font: inherit;
       align-items: center;
@@ -142,7 +142,7 @@
       box-sizing: border-box;
       padding: 20px 12px 8px 12px;
       background-color: transparent;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       font: inherit;
       font-size: 16px;
       border: none;
@@ -156,15 +156,15 @@
    }
 
    .select-field__input option {
-      background-color: v-bind('theme.defaultColor2');
-      color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-color2);
+      color: var(--theme-default-text);
    }
 
    .select-field__label {
       position: absolute;
       left: 12px;
       top: 4px;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       opacity: 0.7;
       font-size: 12px;
       pointer-events: none;
@@ -176,7 +176,7 @@
       left: 0;
       right: 0;
       height: 1px;
-      background-color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-text);
       opacity: 0.5;
    }
 
@@ -187,7 +187,7 @@
       left: 50%;
       width: 0;
       height: 2px;
-      background-color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-text);
       transition: all 0.2s ease;
       transform: translateX(-50%);
    }
@@ -201,7 +201,7 @@
       box-sizing: border-box;
       padding: 20px 12px 8px 12px;
       background-color: transparent;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       font-family: 'Roboto Mono', monospace;
       font-size: 16px;
       border: none;
@@ -215,7 +215,7 @@
       left: 12px;
       top: 50%;
       transform: translateY(-50%);
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       opacity: 0.7;
       font-size: 16px;
       pointer-events: none;
@@ -236,7 +236,7 @@
       left: 0;
       right: 0;
       height: 1px;
-      background-color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-text);
       opacity: 0.5;
    }
 
@@ -247,7 +247,7 @@
       left: 50%;
       width: 0;
       height: 2px;
-      background-color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-text);
       transition: all 0.2s ease;
       transform: translateX(-50%);
    }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-   import type { ThemeConfig, ThemeName } from '../ts/board';
+   import type { ThemeName } from '../ts/board';
 
    interface WordListOption {
       value: string;
@@ -7,7 +7,6 @@
    }
 
    defineProps<{
-      theme: ThemeConfig;
       themeSelected: string;
       availableThemes: string[];
       wordListSelected: string;
@@ -104,9 +103,9 @@
    }
 
    .modal-content {
-      background: v-bind('theme.defaultColor');
-      color: v-bind('theme.defaultText');
-      border: 1px solid v-bind('theme.defaultText');
+      background: var(--theme-default-color);
+      color: var(--theme-default-text);
+      border: 1px solid var(--theme-default-text);
       border-radius: 8px;
       padding: 20px;
       min-width: 300px;
@@ -130,7 +129,7 @@
       border: none;
       font-size: 24px;
       cursor: pointer;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       padding: 0 4px;
       line-height: 1;
    }
@@ -154,8 +153,8 @@
       width: 100%;
       box-sizing: border-box;
       padding: 20px 12px 8px 12px;
-      background-color: v-bind('theme.defaultColor2');
-      color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-color2);
+      color: var(--theme-default-text);
       font: inherit;
       font-size: 16px;
       border: none;
@@ -178,15 +177,15 @@
    }
 
    .select-field__input option {
-      background-color: v-bind('theme.defaultColor2');
-      color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-color2);
+      color: var(--theme-default-text);
    }
 
    .select-field__label {
       position: absolute;
       left: 12px;
       top: 4px;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       opacity: 0.7;
       font-size: 12px;
       pointer-events: none;
@@ -198,7 +197,7 @@
       left: 0;
       right: 0;
       height: 1px;
-      background-color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-text);
       opacity: 0.5;
    }
 
@@ -209,7 +208,7 @@
       left: 50%;
       width: 0;
       height: 2px;
-      background-color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-text);
       transition: all 0.2s ease;
       transform: translateX(-50%);
    }
@@ -230,7 +229,7 @@
       appearance: none;
       width: 18px;
       height: 18px;
-      border: 2px solid v-bind('theme.defaultText');
+      border: 2px solid var(--theme-default-text);
       border-radius: 2px;
       background-color: transparent;
       cursor: pointer;
@@ -239,13 +238,13 @@
    }
 
    .checkbox-field__input:hover {
-      border-color: v-bind('theme.defaultText');
-      background-color: v-bind('theme.defaultColor2');
+      border-color: var(--theme-default-text);
+      background-color: var(--theme-default-color2);
    }
 
    .checkbox-field__input:checked {
-      background-color: v-bind('theme.defaultText');
-      border-color: v-bind('theme.defaultText');
+      background-color: var(--theme-default-text);
+      border-color: var(--theme-default-text);
    }
 
    .checkbox-field__input:checked::after {
@@ -255,13 +254,13 @@
       top: 1px;
       width: 4px;
       height: 9px;
-      border: solid v-bind('theme.defaultColor');
+      border: solid var(--theme-default-color);
       border-width: 0 2px 2px 0;
       transform: rotate(45deg);
    }
 
    .checkbox-field__label {
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       cursor: pointer;
       font-size: 16px;
    }

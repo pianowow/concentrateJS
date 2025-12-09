@@ -1,6 +1,5 @@
 <script setup lang="ts">
    import { ref, computed } from 'vue';
-   import type { ThemeConfig } from '../ts/board';
    import { scoreToColors, convertBoardScore } from '../ts/board';
    import BoardGrid from './BoardGrid.vue';
 
@@ -25,7 +24,6 @@
    const props = defineProps<{
       games: StoredGameState[];
       selectedGameId: string | null;
-      theme: ThemeConfig;
       previewCellSize: number;
    }>();
 
@@ -160,7 +158,6 @@
                   <BoardGrid
                      :letters="getGameBoardLetters(game)"
                      :colors="getGameCurrentColors(game)"
-                     :theme="theme"
                      :size="previewCellSize"
                   />
                   <button
@@ -210,8 +207,8 @@
       left: 0;
       top: 0;
       height: 100dvh;
-      background: v-bind('theme.defaultColor2');
-      color: v-bind('theme.defaultText');
+      background: var(--theme-default-color2);
+      color: var(--theme-default-text);
       padding: 8px;
       border-radius: 0;
    }
@@ -234,8 +231,8 @@
 
    .new-game-btn {
       background: transparent;
-      border: 2px dashed v-bind('theme.defaultText');
-      color: v-bind('theme.defaultText');
+      border: 2px dashed var(--theme-default-text);
+      color: var(--theme-default-text);
       font-size: 24px;
       width: calc(v-bind('previewCellSize') * 5px + 22px);
       height: calc(v-bind('previewCellSize') * 5px + 26px);
@@ -254,7 +251,7 @@
 
    .new-game-btn:hover {
       opacity: 1;
-      background: v-bind('theme.defaultColor');
+      background: var(--theme-default-color);
    }
 
    .games-list {
@@ -265,7 +262,7 @@
       flex: 1 1 auto;
       min-height: 0;
       padding-right: 4px;
-      scrollbar-color: v-bind('theme.defaultText') transparent;
+      scrollbar-color: var(--theme-default-text) transparent;
    }
    .game-top {
       display: flex;
@@ -285,17 +282,17 @@
    }
 
    .game-item:hover {
-      border-color: v-bind('theme.defaultText');
+      border-color: var(--theme-default-text);
    }
 
    .game-item.selected {
-      border-color: v-bind('theme.blue');
-      background: v-bind('theme.defaultColor');
+      border-color: var(--theme-blue);
+      background: var(--theme-default-color);
    }
 
    .game-item.dragging {
       opacity: 0.6;
-      border-color: v-bind('theme.blue');
+      border-color: var(--theme-blue);
    }
 
    .move-indicator {
@@ -304,20 +301,20 @@
    }
 
    .move-indicator-blue {
-      background-color: v-bind('theme.defendedBlue');
+      background-color: var(--theme-defended-blue);
    }
 
    .move-indicator-red {
-      background-color: v-bind('theme.defendedRed');
+      background-color: var(--theme-defended-red);
    }
 
    .delete-game-btn {
       position: absolute;
       top: 2px;
       right: 2px;
-      background: v-bind('theme.red');
+      background: var(--theme-red);
       border: none;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       font-size: 14px;
       width: 20px;
       height: 20px;
@@ -339,15 +336,15 @@
       font-size: 14px;
    }
    .blue-score {
-      color: v-bind('theme.defendedBlue');
+      color: var(--theme-defended-blue);
    }
    .red-score {
-      color: v-bind('theme.defendedRed');
+      color: var(--theme-defended-red);
    }
    .settings-btn {
       background: transparent;
       border: none;
-      color: v-bind('theme.defaultText');
+      color: var(--theme-default-text);
       cursor: pointer;
       padding: 8px;
       margin-top: auto;
