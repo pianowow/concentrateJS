@@ -568,7 +568,7 @@
       resetNodeIdCounter(0);
       const rootNode = createRootNode(
          boardLettersUpperCase.value,
-         boardColorsDefended.value,
+         reducedColors(boardColorsDefended.value),
          score
       );
       const tree = createEmptyTree();
