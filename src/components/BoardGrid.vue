@@ -1,6 +1,5 @@
 <script setup lang="ts">
    import { computed } from 'vue';
-   import BoardGridRow from './BoardGridRow.vue';
    const props = defineProps(['letters', 'colors', 'theme', 'size']);
    const letters = computed(() => props.letters.padEnd(25, ' '));
    const colors = computed(() => props.colors.padEnd(25, 'w'));
@@ -21,14 +20,21 @@
 </script>
 
 <template>
-   <div class="board-wrapper" :style="{ height: size * 5 + 'px' }">
-      <BoardGridRow
-         v-for="(rowLetters, index) in letterRows"
-         :key="index"
-         :letters="rowLetters"
-         :colors="colorRows[index]"
-         :size="props.size"
-      />
+   <div class="board-wrapper" :style="{ height: size * 5 + 'px', width: size * 5 + 'px' }">
+      <div v-for="(row, rowIndex) in letterRows" class="row" :key="rowIndex">
+         <div
+            v-for="(letter, index) in row"
+            :key="index"
+            :class="['letter', colorRows[rowIndex][index]]"
+            :style="{
+               width: size + 'px',
+               height: size + 'px',
+               fontSize: size * 0.8 + 'px',
+            }"
+         >
+            {{ letter }}
+         </div>
+      </div>
    </div>
 </template>
 
@@ -56,5 +62,13 @@
    .board-wrapper > .row:nth-child(odd) > .letter.w:nth-child(even),
    .board-wrapper > .row:nth-child(even) > .letter.w:nth-child(odd) {
       background-color: var(--theme-default-color2);
+   }
+   .row {
+      display: flex;
+   }
+   .letter {
+      display: flex;
+      justify-content: center;
+      align-items: center;
    }
 </style>
