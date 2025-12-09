@@ -65,7 +65,7 @@ export class Player {
    name: string;
    neighbors: Uint32Array;
    playsMemory: Record<string, playMemory>;
-   hashtable;
+   evalMemory: Map<string, Map<number, number>>; // letters: colors: eval
    wordList: string[];
 
    constructor(
@@ -78,7 +78,7 @@ export class Player {
       this.name = 'stable - player0';
       this.neighbors = neighbors;
       this.playsMemory = Object();
-      this.hashtable = Object();
+      this.evalMemory = new Map<string, Map<number, number>>();
       assert(Array.isArray(wordList), 'Player.new requires a wordList array');
       this.wordList = wordList
          .map((w: string) => (typeof w === 'string' ? w.toUpperCase().trim() : ''))
@@ -439,9 +439,14 @@ export class Player {
       return wordGroups;
    }
 
-   evaluatePos(allLetters: string, s: Score) {
+   evaluatePos(allLetters: string, s: Score): number {
       // returns a number indicating who is winning, and by how much.  positive, blue; negative, red.
       // TODO: the Python version memoized this method with a hash table
+      if (this.evalMemory.has(allLetters)) {
+         if (this.evalMemory.get(allLetters)!.has(packKey(s.blue, s.red))) {
+            return this.evalMemory.get(allLetters)!.get(packKey(s.blue, s.red))!;
+         }
+      }
       const ending = bitCount((s.blue | s.red) & BOARD_MASK) == 25;
       let total = 0;
       if (!ending) {
@@ -475,6 +480,12 @@ export class Player {
          total = blueScore - redScore + this.weights.mw * (blueDiff - redDiff);
       } else {
          total = (bitCount(s.blue & BOARD_MASK) - bitCount(s.red & BOARD_MASK)) * 1000;
+      }
+      if (this.evalMemory.has(allLetters)) {
+         this.evalMemory.get(allLetters)!.set(packKey(s.blue, s.red), total);
+      } else {
+         this.evalMemory.set(allLetters, new Map<number, number>());
+         this.evalMemory.get(allLetters)!.set(packKey(s.blue, s.red), total);
       }
       return total;
    }
