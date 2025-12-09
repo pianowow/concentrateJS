@@ -57,7 +57,7 @@ export class Player {
    weights: Weights;
    name: string;
    neighbors: Uint32Array;
-   cache;
+   playsMemory;
    hashtable;
    wordList: string[];
 
@@ -70,7 +70,7 @@ export class Player {
       this.weights = weights;
       this.name = 'stable - player0';
       this.neighbors = neighbors;
-      this.cache = Object();
+      this.playsMemory = Object();
       this.hashtable = Object();
       assert(Array.isArray(wordList), 'Player.new requires a wordList array');
       this.wordList = wordList
@@ -81,9 +81,9 @@ export class Player {
    possible(letters: string) {
       letters = letters.toUpperCase();
       // TODO - refactor to avoid magic number 0 and 1 here
-      if (this.cache[letters]) {
-         return this.cache[letters][0].filter(
-            (item: string) => !this.cache[letters][1].includes(item)
+      if (this.playsMemory[letters]) {
+         return this.playsMemory[letters][0].filter(
+            (item: string) => !this.playsMemory[letters][1].includes(item)
          );
          //so we don't suggest words that have already been played
       }
@@ -182,15 +182,11 @@ export class Player {
             u[i] = roundTo(this.weights.uw + this.weights.upw * mean, 2);
          }
       }
-      this.cache[letters] = [found, [], d, u]; // valid words, played words, defended scores, undefended scores
+      this.playsMemory[letters] = [found, [], d, u]; // valid words, played words, defended scores, undefended scores
       return found;
    }
 
    concentrate(allLetters: string, needLetters = '', notLetters = '', anyLetters = '') {
-      assert(allLetters == allLetters.toUpperCase());
-      assert(needLetters == needLetters.toUpperCase());
-      assert(notLetters == notLetters.toUpperCase());
-      assert(anyLetters == anyLetters.toUpperCase());
       const possibleWords = this.possible(allLetters);
       // Fast-path: no filters => return as-is
       if (!needLetters && !notLetters && !anyLetters) return possibleWords;
@@ -240,7 +236,7 @@ export class Player {
 
       // Build prefix set of played words
       const prefixBlocked = new Set<string>();
-      const playedWords = this.cache[allLetters][1];
+      const playedWords = this.playsMemory[allLetters][1];
       if (playedWords.length > 0) {
          for (const played of playedWords) {
             for (let i = 1; i < played.length; i++) {
@@ -439,8 +435,8 @@ export class Player {
       let total = 0;
       if (!ending) {
          // TODO: refactor to avoid magic numbers 2 and 3
-         const d = this.cache[allLetters][2]; // defended
-         const u = this.cache[allLetters][3]; // undefended
+         const d = this.playsMemory[allLetters][2]; // defended
+         const u = this.playsMemory[allLetters][3]; // undefended
          const n = this.neighbors;
          let blueScore = 0,
             redScore = 0;
@@ -757,11 +753,7 @@ export class Player {
          const k = p.score;
          const b = buckets.get(k);
          if (b) {
-            // Insertion sort by word length (descending)
-            const len = p.word.length;
-            let i = b.length;
-            while (i > 0 && b[i - 1]!.word.length < len) i--;
-            b.splice(i, 0, p);
+            b.push(p);
          } else {
             buckets.set(k, [p]);
          }
@@ -823,8 +815,12 @@ export class Player {
       let endingsoon = false;
       let newscore = null;
       if (zeroletters) {
-         // TODO ? original Python memoized this value in this.cache[allLetters+zeroletters]
-         gameendingwords = this.concentrate(allLetters, zeroletters);
+         if (this.playsMemory[allLetters + zeroletters]) {
+            gameendingwords = this.playsMemory[allLetters + zeroletters];
+         } else {
+            gameendingwords = this.concentrate(allLetters, zeroletters);
+            this.playsMemory[allLetters + zeroletters] = gameendingwords;
+         }
          const wordgroups = this.groupWords(gameendingwords, anyl);
          for (const gameendingword in wordgroups) {
             const scores = new Map();
@@ -859,17 +855,17 @@ export class Player {
    }
 
    playword(allletters: string, word: string) {
-      this.cache[allletters][1].push(word);
+      this.playsMemory[allletters][1].push(word);
    }
 
    resetplayed(allletters: string, words: string[]) {
-      this.cache[allletters][1] = words;
+      this.playsMemory[allletters][1] = words;
    }
 
    unplayword(allletters: string, word: string) {
-      const idx = this.cache[allletters][1].indexOf(word);
+      const idx = this.playsMemory[allletters][1].indexOf(word);
       if (idx !== -1) {
-         this.cache[allletters][1].splice(idx, 1);
+         this.playsMemory[allletters][1].splice(idx, 1);
       }
    }
 }

@@ -13,8 +13,8 @@ describe('Player.evaluatePos', async () => {
    p.possible(letters);
 
    const s: Score = convertBoardScore('BbbBBbwwbBwwwwbwbwwwwwwww'.toUpperCase());
-   console.log(p.cache[letters][2]);
-   console.log(p.cache[letters][3]);
+   console.log(p.playsMemory[letters][2]);
+   console.log(p.playsMemory[letters][3]);
    it('evaluatePos: ', () => {
       expect(roundTo(p.evaluatePos(letters, s), 3)).toEqual(35.385);
    });
