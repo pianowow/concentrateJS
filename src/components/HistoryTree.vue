@@ -43,7 +43,7 @@
    const pagedRows = computed(() =>
       flattenedRows.value.slice(startIndex.value, startIndex.value + pageSize.value)
    );
-   const rowHeightPx = computed(() => boardPreviewCellSize.value * 5 + 4);
+   const rowHeightPx = computed(() => boardPreviewCellSize.value * 5 + 12);
    const branchSegmentWidth = 20;
 
    function goToPage(p: number) {
@@ -464,7 +464,7 @@
    .board-cell {
       width: 70px;
       flex-shrink: 0;
-      padding: 4px 8px;
+      padding: 6px 8px;
    }
 
    /* Pager */
