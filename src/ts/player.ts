@@ -52,12 +52,19 @@ export class Play {
    }
 }
 
+interface playMemory {
+   wordList: string[];
+   playedWords: string[];
+   undefendedValues: Float32Array;
+   defendedValues: Float32Array;
+}
+
 export class Player {
    difficulty: Difficulty;
    weights: Weights;
    name: string;
    neighbors: Uint32Array;
-   playsMemory;
+   playsMemory: Record<string, playMemory>;
    hashtable;
    wordList: string[];
 
@@ -78,12 +85,11 @@ export class Player {
          .filter(Boolean);
    }
 
-   possible(letters: string) {
+   possible(letters: string): string[] {
       letters = letters.toUpperCase();
-      // TODO - refactor to avoid magic number 0 and 1 here
       if (this.playsMemory[letters]) {
-         return this.playsMemory[letters][0].filter(
-            (item: string) => !this.playsMemory[letters][1].includes(item)
+         return this.playsMemory[letters]!.wordList.filter(
+            (item: string) => !this.playsMemory[letters]!.playedWords.includes(item)
          );
          //so we don't suggest words that have already been played
       }
@@ -182,7 +188,12 @@ export class Player {
             u[i] = roundTo(this.weights.uw + this.weights.upw * mean, 2);
          }
       }
-      this.playsMemory[letters] = [found, [], d, u]; // valid words, played words, defended scores, undefended scores
+      this.playsMemory[letters] = {
+         wordList: found,
+         playedWords: [],
+         defendedValues: d,
+         undefendedValues: u,
+      };
       return found;
    }
 
@@ -236,7 +247,7 @@ export class Player {
 
       // Build prefix set of played words
       const prefixBlocked = new Set<string>();
-      const playedWords = this.playsMemory[allLetters][1];
+      const playedWords = this.playsMemory[allLetters]!.playedWords;
       if (playedWords.length > 0) {
          for (const played of playedWords) {
             for (let i = 1; i < played.length; i++) {
@@ -435,8 +446,8 @@ export class Player {
       let total = 0;
       if (!ending) {
          // TODO: refactor to avoid magic numbers 2 and 3
-         const d = this.playsMemory[allLetters][2]; // defended
-         const u = this.playsMemory[allLetters][3]; // undefended
+         const d = this.playsMemory[allLetters]!.defendedValues; // defended
+         const u = this.playsMemory[allLetters]!.undefendedValues; // undefended
          const n = this.neighbors;
          let blueScore = 0,
             redScore = 0;
@@ -816,10 +827,15 @@ export class Player {
       let newscore = null;
       if (zeroletters) {
          if (this.playsMemory[allLetters + zeroletters]) {
-            gameendingwords = this.playsMemory[allLetters + zeroletters];
+            gameendingwords = this.playsMemory[allLetters + zeroletters]!.wordList;
          } else {
             gameendingwords = this.concentrate(allLetters, zeroletters);
-            this.playsMemory[allLetters + zeroletters] = gameendingwords;
+            this.playsMemory[allLetters + zeroletters] = {
+               wordList: gameendingwords,
+               playedWords: [],
+               undefendedValues: new Float32Array(),
+               defendedValues: new Float32Array(),
+            };
          }
          const wordgroups = this.groupWords(gameendingwords, anyl);
          for (const gameendingword in wordgroups) {
@@ -855,17 +871,17 @@ export class Player {
    }
 
    playword(allletters: string, word: string) {
-      this.playsMemory[allletters][1].push(word);
+      this.playsMemory[allletters]!.playedWords.push(word);
    }
 
    resetplayed(allletters: string, words: string[]) {
-      this.playsMemory[allletters][1] = words;
+      this.playsMemory[allletters]!.playedWords = words;
    }
 
    unplayword(allletters: string, word: string) {
-      const idx = this.playsMemory[allletters][1].indexOf(word);
+      const idx = this.playsMemory[allletters]!.playedWords.indexOf(word);
       if (idx !== -1) {
-         this.playsMemory[allletters][1].splice(idx, 1);
+         this.playsMemory[allletters]!.playedWords.splice(idx, 1);
       }
    }
 }
