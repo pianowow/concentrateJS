@@ -366,6 +366,8 @@
          flex: 0 0 auto;
          position: static;
          height: auto;
+         min-height: 180px;
+         flex-shrink: 0;
       }
 
       .games-list {
