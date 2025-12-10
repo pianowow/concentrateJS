@@ -283,6 +283,8 @@
          }
       } catch (e) {
          console.warn('Failed to load state from local storage:', e);
+         // delete local storage item we can't use
+         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
       return null;
    }
