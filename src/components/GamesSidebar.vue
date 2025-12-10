@@ -27,6 +27,10 @@
       previewCellSize: number;
    }>();
 
+   const styleVars = computed(() => ({
+      '--preview-cell-size': props.previewCellSize,
+   }));
+
    const emit = defineEmits<{
       selectGame: [gameId: string];
       createGame: [];
@@ -121,7 +125,7 @@
 </script>
 
 <template>
-   <aside class="menu-pane">
+   <aside class="menu-pane" :style="styleVars">
       <h2 class="app-title">Concentrate</h2>
       <div class="games-section">
          <h3 class="games-header">Games</h3>
@@ -234,8 +238,8 @@
       border: 2px dashed var(--theme-default-text);
       color: var(--theme-default-text);
       font-size: 24px;
-      width: calc(v-bind('previewCellSize') * 5px + 22px);
-      height: calc(v-bind('previewCellSize') * 5px + 26px);
+      width: calc(var(--preview-cell-size) * 5px + 22px);
+      height: calc(var(--preview-cell-size) * 5px + 26px);
       flex-shrink: 0;
       border-radius: 6px;
       cursor: pointer;
@@ -272,7 +276,7 @@
    .game-item {
       display: flex;
       flex-direction: column;
-      height: calc(v-bind('props.previewCellSize') * 5px + 26px);
+      height: calc(var(--preview-cell-size) * 5px + 26px);
       position: relative;
       padding: 5px;
       border: 2px solid transparent;
@@ -296,7 +300,7 @@
    }
 
    .move-indicator {
-      height: calc(v-bind('previewCellSize') * 5px);
+      height: 100%;
       width: 2px;
    }
 
