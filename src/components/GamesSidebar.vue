@@ -41,6 +41,8 @@
 
    const draggedGameId = ref<string | null>(null);
    const dragOverIndex = ref<number | null>(null);
+   const isDragging = ref(false);
+   const lastDragOverTime = ref(0);
 
    const gamesDisplayOrder = computed(() => {
       if (draggedGameId.value === null || dragOverIndex.value === null) {
@@ -91,11 +93,21 @@
 
    function onDragStart(gameId: string) {
       draggedGameId.value = gameId;
+      // delay hiding so browser can capture drag image
+      requestAnimationFrame(() => {
+         isDragging.value = true;
+      });
    }
 
    function onDragOver(e: DragEvent, idx: number) {
       e.preventDefault();
-      if (draggedGameId.value !== null) {
+      if (draggedGameId.value !== null && dragOverIndex.value !== idx) {
+         const now = Date.now();
+         // Debounce: ignore rapid changes (within transition duration)
+         if (now - lastDragOverTime.value < 150) {
+            return;
+         }
+         lastDragOverTime.value = now;
          dragOverIndex.value = idx;
       }
    }
@@ -105,6 +117,7 @@
       if (draggedGameId.value === null || dragOverIndex.value === null) {
          draggedGameId.value = null;
          dragOverIndex.value = null;
+         isDragging.value = false;
          return;
       }
 
@@ -114,13 +127,20 @@
          emit('reorderGames', fromIdx, dragOverIndex.value);
       }
 
-      draggedGameId.value = null;
-      dragOverIndex.value = null;
+      // delay clearing drag state until after parent updates props.games
+      requestAnimationFrame(() => {
+         draggedGameId.value = null;
+         dragOverIndex.value = null;
+         isDragging.value = false;
+      });
    }
 
    function onDragEnd() {
+      // only clear if onDrop hasn't already handled it
+      if (draggedGameId.value === null) return;
       draggedGameId.value = null;
       dragOverIndex.value = null;
+      isDragging.value = false;
    }
 </script>
 
@@ -129,60 +149,65 @@
       <h2 class="app-title">Concentrate</h2>
       <div class="games-section">
          <h3 class="games-header">Games</h3>
-         <div class="games-list">
-            <div
-               v-for="(game, idx) in gamesDisplayOrder"
-               :key="game.id"
-               class="game-item"
-               :class="{
-                  selected: game.id === selectedGameId,
-                  dragging: game.id === draggedGameId,
-               }"
-               draggable="true"
-               @click="emit('selectGame', game.id)"
-               @dragstart="onDragStart(game.id)"
-               @dragover="(e) => onDragOver(e, idx)"
-               @drop="onDrop"
-               @dragend="onDragEnd"
-            >
-               <div class="game-top">
-                  <div v-if="!gameOver(game)">
-                     <div
-                        v-if="game.moveIndicator == 1"
-                        class="move-indicator move-indicator-blue"
-                     ></div>
-                     <div
-                        v-if="game.moveIndicator == -1"
-                        class="move-indicator move-indicator-red"
-                     ></div>
+         <div class="games-list" @dragover.prevent @drop="onDrop">
+            <TransitionGroup name="game-list">
+               <div
+                  v-for="(game, idx) in gamesDisplayOrder"
+                  :key="game.id"
+                  class="game-item"
+                  :class="{
+                     selected: game.id === selectedGameId,
+                     dragging: game.id === draggedGameId && isDragging,
+                  }"
+                  draggable="true"
+                  @click="emit('selectGame', game.id)"
+                  @dragstart="onDragStart(game.id)"
+                  @dragover="
+                     (e) => {
+                        if (game.id !== draggedGameId) onDragOver(e, idx);
+                     }
+                  "
+                  @dragend="onDragEnd"
+               >
+                  <div class="game-top">
+                     <div v-if="!gameOver(game)">
+                        <div
+                           v-if="game.moveIndicator == 1"
+                           class="move-indicator move-indicator-blue"
+                        ></div>
+                        <div
+                           v-if="game.moveIndicator == -1"
+                           class="move-indicator move-indicator-red"
+                        ></div>
+                     </div>
+                     <div v-else>
+                        <div class="move-indicator"></div>
+                     </div>
+                     <BoardGrid
+                        :letters="getGameBoardLetters(game)"
+                        :colors="getGameCurrentColors(game)"
+                        :size="previewCellSize"
+                     />
+                     <button
+                        class="delete-game-btn"
+                        @click.stop="emit('deleteGame', game.id)"
+                        title="Delete game"
+                        v-if="games.length > 1"
+                     >
+                        &times;
+                     </button>
                   </div>
-                  <div v-else>
-                     <div class="move-indicator"></div>
+                  <div class="score">
+                     <span class="blue-score">{{
+                        getGameCurrentColors(game).toUpperCase().split('B').length - 1
+                     }}</span>
+                     -
+                     <span class="red-score">{{
+                        getGameCurrentColors(game).toUpperCase().split('R').length - 1
+                     }}</span>
                   </div>
-                  <BoardGrid
-                     :letters="getGameBoardLetters(game)"
-                     :colors="getGameCurrentColors(game)"
-                     :size="previewCellSize"
-                  />
-                  <button
-                     class="delete-game-btn"
-                     @click.stop="emit('deleteGame', game.id)"
-                     title="Delete game"
-                     v-if="games.length > 1"
-                  >
-                     &times;
-                  </button>
                </div>
-               <div class="score">
-                  <span class="blue-score">{{
-                     getGameCurrentColors(game).toUpperCase().split('B').length - 1
-                  }}</span>
-                  -
-                  <span class="red-score">{{
-                     getGameCurrentColors(game).toUpperCase().split('R').length - 1
-                  }}</span>
-               </div>
-            </div>
+            </TransitionGroup>
             <button class="new-game-btn" @click="emit('createGame')" title="New Game">+</button>
          </div>
       </div>
@@ -282,11 +307,11 @@
       border: 2px solid transparent;
       border-radius: 6px;
       cursor: pointer;
-      transition: border-color 0.15s ease;
    }
 
    .game-item:hover {
       border-color: var(--theme-default-text);
+      transition: border-color 0.15s ease;
    }
 
    .game-item.selected {
@@ -295,8 +320,11 @@
    }
 
    .game-item.dragging {
-      opacity: 0.6;
-      border-color: var(--theme-blue);
+      visibility: hidden;
+   }
+
+   .game-list-move {
+      transition: transform 0.15s ease-out;
    }
 
    .move-indicator {
