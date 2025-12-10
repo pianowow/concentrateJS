@@ -4,6 +4,7 @@
    import { mapsToColors } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
    import BoardGrid from './BoardGrid.vue';
+   import PagerControls from './PagerControls.vue';
 
    const props = defineProps<{
       boardLetters: string;
@@ -24,27 +25,20 @@
    // Lightweight pager state
    const pageSize = ref(20);
    const currentPage = ref(0);
-   const editCurrentPage = ref(false);
    const filteredResults = computed(() => {
       const q = (wordFilter.value || '').trim().toUpperCase();
       if (!q) return searchResults.value;
       return searchResults.value.filter((p) => (p.word || '').toUpperCase().includes(q));
    });
-   const totalPages = computed(() =>
-      Math.max(1, Math.ceil(filteredResults.value.length / pageSize.value))
-   );
    const pagedResults = computed(() => {
       const start = currentPage.value * pageSize.value;
       return filteredResults.value.slice(start, start + pageSize.value);
    });
    const rowHeightPx = computed(() => boardPreviewCellSize.value * 5 + 4);
-   function goToPage(p: number) {
-      currentPage.value = Math.min(Math.max(p, 0), totalPages.value - 1);
-   }
    function addToHistory(play: Play) {
       emit('add-to-history', play);
    }
-   watch([wordFilter, pageSize, searchResults], () => {
+   watch([wordFilter, searchResults], () => {
       currentPage.value = 0;
    });
 
@@ -92,10 +86,6 @@
       },
       { immediate: true }
    );
-
-   function pageSpanClick() {
-      editCurrentPage.value = !editCurrentPage.value;
-   }
 </script>
 
 <template>
@@ -190,58 +180,15 @@
             </table>
          </div>
       </div>
-      <div class="pager">
-         <div class="pager-left">
-            <label
-               >Page Size:
-               <select v-model.number="pageSize" class="pager-select">
-                  <option :value="20">20</option>
-                  <option :value="50">50</option>
-                  <option :value="100">100</option>
-               </select>
-            </label>
-         </div>
-         <div class="pager-right">
-            <button
-               type="button"
-               aria-label="First Page"
-               title="First Page"
-               @click="goToPage(0)"
-               :disabled="currentPage === 0"
-            >
-               |&lt;
-            </button>
-            <button
-               type="button"
-               aria-label="Previous Page"
-               title="Previous Page"
-               @click="goToPage(currentPage - 1)"
-               :disabled="currentPage === 0"
-            >
-               &lt;
-            </button>
-            <span @click="pageSpanClick">Page {{ currentPage + 1 }} / {{ totalPages }}</span>
-            <input v-if="editCurrentPage" v-model.number="currentPage" />
-            <button
-               type="button"
-               aria-label="Next Page"
-               title="Next Page"
-               @click="goToPage(currentPage + 1)"
-               :disabled="currentPage >= totalPages - 1"
-            >
-               &gt;
-            </button>
-            <button
-               type="button"
-               aria-label="Last Page"
-               title="Last Page"
-               @click="goToPage(totalPages - 1)"
-               :disabled="currentPage >= totalPages - 1"
-            >
-               &gt;|
-            </button>
-         </div>
-      </div>
+      <PagerControls
+         v-model="currentPage"
+         :total-items="filteredResults.length"
+         :page-size="pageSize"
+         @update:page-size="
+            pageSize = $event;
+            currentPage = 0;
+         "
+      />
    </div>
 </template>
 
@@ -398,45 +345,6 @@
       opacity: 0.05;
       pointer-events: none;
       z-index: 2;
-   }
-
-   .pager {
-      display: flex;
-      gap: 20px;
-      justify-content: right;
-   }
-
-   .pager-left {
-      display: flex;
-      align-items: center;
-   }
-
-   .pager-right {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-   }
-
-   .pager-select {
-      border: 1px solid var(--theme-default-color2);
-      background: var(--theme-default-color2);
-      color: var(--theme-default-text);
-      border-radius: 4px;
-      padding: 2px 6px;
-      font: inherit;
-   }
-
-   .pager button {
-      border: none;
-      background: transparent;
-      padding: 4px 4px;
-      cursor: pointer;
-      color: var(--theme-default-text);
-   }
-
-   .pager button:disabled {
-      opacity: 0.6;
-      cursor: default;
    }
 
    @media (max-width: 900px) {

@@ -2,6 +2,7 @@
    // Component: HistoryTree
    import { ref, toRefs, computed, watch } from 'vue';
    import BoardGrid from './BoardGrid.vue';
+   import PagerControls from './PagerControls.vue';
    import { scoreToColors, convertBoardScore } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
    import {
@@ -34,19 +35,12 @@
       return flattenTree(historyTree.value);
    });
 
-   const totalPages = computed(() =>
-      Math.max(1, Math.ceil(flattenedRows.value.length / pageSize.value))
-   );
    const startIndex = computed(() => currentPage.value * pageSize.value);
    const pagedRows = computed(() =>
       flattenedRows.value.slice(startIndex.value, startIndex.value + pageSize.value)
    );
    const rowHeightPx = computed(() => boardPreviewCellSize.value * 5 + 12);
    const branchSegmentWidth = 20;
-
-   function goToPage(p: number) {
-      currentPage.value = Math.min(Math.max(p, 0), totalPages.value - 1);
-   }
 
    function onRowClick(node: HistoryNode) {
       emit('node-click', node);
@@ -197,57 +191,12 @@
             </div>
          </div>
       </div>
-      <div class="pager">
-         <div class="pager-left">
-            <label>
-               Page Size:
-               <select v-model.number="pageSize" class="pager-select">
-                  <option :value="20">20</option>
-                  <option :value="50">50</option>
-                  <option :value="100">100</option>
-               </select>
-            </label>
-         </div>
-         <div class="pager-right">
-            <button
-               type="button"
-               aria-label="First Page"
-               title="First Page"
-               @click="goToPage(0)"
-               :disabled="currentPage === 0"
-            >
-               |&lt;
-            </button>
-            <button
-               type="button"
-               aria-label="Previous Page"
-               title="Previous Page"
-               @click="goToPage(currentPage - 1)"
-               :disabled="currentPage === 0"
-            >
-               &lt;
-            </button>
-            <span>Page {{ currentPage + 1 }} / {{ totalPages }}</span>
-            <button
-               type="button"
-               aria-label="Next Page"
-               title="Next Page"
-               @click="goToPage(currentPage + 1)"
-               :disabled="currentPage >= totalPages - 1"
-            >
-               &gt;
-            </button>
-            <button
-               type="button"
-               aria-label="Last Page"
-               title="Last Page"
-               @click="goToPage(totalPages - 1)"
-               :disabled="currentPage >= totalPages - 1"
-            >
-               &gt;|
-            </button>
-         </div>
-      </div>
+      <PagerControls
+         v-model="currentPage"
+         :total-items="flattenedRows.length"
+         :page-size="pageSize"
+         @update:page-size="pageSize = $event"
+      />
    </div>
 </template>
 
@@ -467,46 +416,6 @@
       width: 70px;
       flex-shrink: 0;
       padding: 6px 8px;
-   }
-
-   /* Pager */
-   .pager {
-      display: flex;
-      gap: 20px;
-      justify-content: right;
-   }
-
-   .pager-left {
-      display: flex;
-      align-items: center;
-   }
-
-   .pager-right {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-   }
-
-   .pager-select {
-      border: 1px solid var(--theme-default-color2);
-      background: var(--theme-default-color2);
-      color: var(--theme-default-text);
-      border-radius: 4px;
-      padding: 2px 6px;
-      font: inherit;
-   }
-
-   .pager button {
-      border: none;
-      background: transparent;
-      padding: 4px 4px;
-      cursor: pointer;
-      color: var(--theme-default-text);
-   }
-
-   .pager button:disabled {
-      opacity: 0.6;
-      cursor: default;
    }
 
    @media (max-width: 900px) {
