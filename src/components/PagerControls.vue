@@ -1,5 +1,5 @@
 <script setup lang="ts">
-   import { ref, computed, watch } from 'vue';
+   import { ref, computed, watch, nextTick } from 'vue';
 
    const props = defineProps<{
       totalItems: number;
@@ -13,6 +13,8 @@
    }>();
 
    const editCurrentPage = ref(false);
+   const pageInput = ref<HTMLInputElement | null>(null);
+   const pageDisplay = computed(() => props.modelValue + 1);
    const localPageSize = ref(props.pageSize);
 
    const totalPages = computed(() =>
@@ -26,14 +28,16 @@
 
    function pageSpanClick() {
       editCurrentPage.value = !editCurrentPage.value;
+      nextTick(() => {
+         pageInput.value?.select();
+      });
    }
 
-   function onPageInputChange(event: Event) {
+   function onPageInput(event: Event) {
       const val = parseInt((event.target as HTMLInputElement).value, 10);
-      if (!isNaN(val)) {
+      if (!isNaN(val) && val >= 1 && val <= totalPages.value) {
          goToPage(val - 1); // Input is 1-indexed, internal is 0-indexed
       }
-      editCurrentPage.value = false;
    }
 
    watch(localPageSize, (newSize) => {
@@ -79,16 +83,23 @@
          >
             &lt;
          </button>
-         <span @click="pageSpanClick">Page {{ modelValue + 1 }} / {{ totalPages }}</span>
-         <input
-            v-if="editCurrentPage"
-            :value="modelValue + 1"
-            type="number"
-            min="1"
-            :max="totalPages"
-            @change="onPageInputChange"
-            @blur="editCurrentPage = false"
-         />
+         <span @click="pageSpanClick" class="page-display"
+            >Page
+            <span v-if="!editCurrentPage">{{ pageDisplay }}</span>
+            <input
+               v-else
+               ref="pageInput"
+               class="page-input"
+               :value="pageDisplay"
+               type="number"
+               min="1"
+               :max="totalPages"
+               @input="onPageInput"
+               @keydown.enter="editCurrentPage = false"
+               @blur="editCurrentPage = false"
+            />
+            / {{ totalPages }}</span
+         >
          <button
             type="button"
             aria-label="Next Page"
@@ -149,5 +160,12 @@
    .pager button:disabled {
       opacity: 0.6;
       cursor: default;
+   }
+
+   .page-display {
+      cursor: pointer;
+   }
+   .page-input {
+      width: 50px;
    }
 </style>
