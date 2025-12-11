@@ -708,7 +708,10 @@
       needLetters.value = '';
       notLetters.value = '';
       wordFilter.value = '';
-      syncState();
+
+      updateQueryParams();
+      saveToLocalStorage();
+      runSearch();
    }
 
    function deleteNodeAndChildren(nodeId: string): void {
