@@ -28,6 +28,7 @@ describe('Player.decide ', () => {
       const colors = 'B3RRBBBBWWWRRWWRBBBRWB4'; //too many characters
       player.concentrate(letters, '', '', '');
       decideResults = player.decide(letters, colors, '', '', 1);
+      expect(decideResults.length).toEqual(101004);
       decideResults.sort((a, b) => b.score - a.score);
       expect(decideResults.reduce((a, b) => (a.score < b.score ? b : a)).score).toEqual(23000);
    });

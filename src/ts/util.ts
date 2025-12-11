@@ -49,6 +49,31 @@ export function unpackKey(key: number) {
    return [Math.floor(key / 2 ** 25), key % 2 ** 25];
 }
 
+export function* combinations(arr: number[], k: number): IterableIterator<number[]> {
+   const n = arr.length;
+   if (k < 0 || k > n) return;
+   const combo = new Array<number>(k);
+
+   function* rec(start: number, depth: number): IterableIterator<number[]> {
+      if (depth === k) {
+         yield combo.slice();
+         return;
+      }
+      // Prune so there are enough items left to fill the combo
+      for (let i = start; i <= n - (k - depth); i++) {
+         combo[depth] = arr[i]!;
+         yield* rec(i + 1, depth + 1);
+      }
+   }
+
+   if (k === 0) {
+      yield [];
+      return;
+   }
+
+   yield* rec(0, 0);
+}
+
 export interface ScoreBarData {
    bluePercent: number;
    redPercent: number;
@@ -107,4 +132,20 @@ export function computeScoreBar(score: number): ScoreBarData {
          isWin: false,
       };
    }
+}
+
+/**
+ * Returns the number of needles found in haystack.
+ * Fastest implementation found, see string-search.bench.ts
+ * @param haystack
+ * @param needle
+ */
+export function strCount(haystack: string, needle: string): number {
+   let count = 0;
+   let pos = haystack.indexOf(needle);
+   while (pos !== -1) {
+      count++;
+      pos = haystack.indexOf(needle, pos + 1);
+   }
+   return count;
 }

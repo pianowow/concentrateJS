@@ -1,4 +1,13 @@
-import { roundTo, assert, Vector, vectorDiff, packKey, unpackKey } from './util';
+import {
+   roundTo,
+   assert,
+   Vector,
+   vectorDiff,
+   combinations,
+   packKey,
+   unpackKey,
+   strCount,
+} from './util';
 import {
    neighbors,
    BOARD_MASK,
@@ -317,32 +326,6 @@ export class Player {
       return out;
    }
 
-   // TODO: move to util.js
-   *combinations(arr: number[], k: number): IterableIterator<number[]> {
-      const n = arr.length;
-      if (k < 0 || k > n) return;
-      const combo = new Array<number>(k);
-
-      function* rec(start: number, depth: number): IterableIterator<number[]> {
-         if (depth === k) {
-            yield combo.slice();
-            return;
-         }
-         // Prune so there are enough items left to fill the combo
-         for (let i = start; i <= n - (k - depth); i++) {
-            combo[depth] = arr[i]!;
-            yield* rec(i + 1, depth + 1);
-         }
-      }
-
-      if (k === 0) {
-         yield [];
-         return;
-      }
-
-      yield* rec(0, 0);
-   }
-
    goalValue(goal: number, blue: number, red: number, move: number) {
       // letter popularity reduced the strength of the engine
       // centroid is more important
@@ -371,7 +354,7 @@ export class Player {
       }
       const lst = this.possible(allLetters);
       for (let r = 2; r < unoccupied.length; r++) {
-         for (const goal of this.combinations(unoccupied, r)) {
+         for (const goal of combinations(unoccupied, r)) {
             let goalStr = '';
             for (const i of goal) goalStr += allLetters.charAt(i);
             let goodGoal = true;
@@ -379,7 +362,7 @@ export class Player {
                // find one word that uses all the goal letters
                let goodWord = true;
                for (const letter of goalStr) {
-                  if (word.split(letter).length < goalStr.split(letter).length) {
+                  if (strCount(word, letter) < strCount(goalStr, letter)) {
                      goodWord = false;
                      break;
                   }
@@ -415,33 +398,8 @@ export class Player {
       }
    }
 
-   groupWords(words: string[], anyl: string): Record<string, string[]> {
-      // groups words to limit the number of calls to arrange
-      const wordGroups: Record<string, string[]> = {};
-      for (const word of words) {
-         let group = '';
-         for (const letter of word) {
-            if (anyl.split(letter).length > 1) {
-               // TODO: research if a word having more letters than anyl is an issue
-               // meaning if anyl is 'LAO', 'HELLO' as a word would have group 'LLO', maybe it should be 'LO'
-               // seems like this results in more calls to arrange than necessary
-               // this "bug" (?) was present in the original python
-               group = group + letter;
-            }
-         }
-         group = group.split('').sort().join(''); //we care if the group has the same letters, not the same order of letters
-         if (wordGroups[group]) {
-            wordGroups[group]!.push(word);
-         } else {
-            wordGroups[group] = [word];
-         }
-      }
-      return wordGroups;
-   }
-
    evaluatePos(allLetters: string, s: Score): number {
       // returns a number indicating who is winning, and by how much.  positive, blue; negative, red.
-      // TODO: the Python version memoized this method with a hash table
       if (this.evalMemory.has(allLetters)) {
          if (this.evalMemory.get(allLetters)!.has(packKey(s.blue, s.red))) {
             return this.evalMemory.get(allLetters)!.get(packKey(s.blue, s.red))!;
@@ -450,7 +408,6 @@ export class Player {
       const ending = bitCount((s.blue | s.red) & BOARD_MASK) == 25;
       let total = 0;
       if (!ending) {
-         // TODO: refactor to avoid magic numbers 2 and 3
          const d = this.playsMemory[allLetters]!.defendedValues; // defended
          const u = this.playsMemory[allLetters]!.undefendedValues; // undefended
          const n = this.neighbors;
@@ -648,16 +605,16 @@ export class Player {
    private groupWordsByPresence(words: string[], present: Uint8Array): Record<string, string[]> {
       const groups: Record<string, string[]> = Object.create(null);
       for (const word of words) {
-         let grp = '';
+         let group = '';
          for (let i = 0; i < word.length; i++) {
             const code = word.charCodeAt(i) - 65; // 'A'..'Z' -> 0..25
             if (code >= 0 && code < 26 && present[code] === 1) {
-               grp += word[i]!;
+               group += word[i]!;
             }
          }
          // Sort letters to normalize group key (same letters, any order)
-         grp = grp ? grp.split('').sort().join('') : '';
-         (groups[grp] ??= []).push(word);
+         group = group ? group.split('').sort().join('') : '';
+         (groups[group] ??= []).push(word);
       }
       return groups;
    }
@@ -716,7 +673,6 @@ export class Player {
          }
       }
       wordList = this.concentrate(allLetters, needLetters, notLetters, anyl);
-      // const wordGroups = this.groupWords(wordList, anyl);
       const wordGroups = this.groupWordsByPresence(wordList, anylPresent);
       const plays = [];
       for (const group in wordGroups) {
@@ -815,7 +771,7 @@ export class Player {
       //purpose: an extra depth of search to check if a play loses or forces the end soon
       let zeroletters = '';
       const zeros = ~blue & ~red;
-      let anyl = '';
+      const anylPresent = new Uint8Array(26); // 0/1 per letter A..Z
       const bluedef = defendedMap(blue);
       const reddef = defendedMap(red);
       let targets = 0;
@@ -826,7 +782,7 @@ export class Player {
       }
       for (let i = 0; i < 25; i++) {
          if (targets & (1 << i)) {
-            anyl += allLetters.charAt(i);
+            anylPresent[allLetters.charCodeAt(i) - 65] = 1;
          }
          if (zeros & (1 << i)) {
             zeroletters += allLetters.charAt(i);
@@ -848,7 +804,7 @@ export class Player {
                defendedValues: new Float32Array(),
             };
          }
-         const wordgroups = this.groupWords(gameendingwords, anyl);
+         const wordgroups = this.groupWordsByPresence(gameendingwords, anylPresent);
          for (const gameendingword in wordgroups) {
             const scores = new Map();
             const used: number[] = [];
