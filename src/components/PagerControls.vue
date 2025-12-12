@@ -5,6 +5,8 @@
       totalItems: number;
       modelValue: number; // (0-indexed)
       pageSize: number;
+      unknownTotal?: boolean; //when true, total is unkown, (show "?")
+      hasMore?: boolean; //when unknownTotal, indicates if there are more pages
    }>();
 
    const emit = defineEmits<{
@@ -21,8 +23,21 @@
       Math.max(1, Math.ceil(props.totalItems / localPageSize.value))
    );
 
+   const displayTotalPages = computed(() => (props.unknownTotal ? '?' : totalPages.value));
+
+   const canGoNext = computed(() => {
+      if (props.unknownTotal) return props.hasMore;
+      return props.modelValue < totalPages.value - 1;
+   });
+
+   const canGoLast = computed(() => {
+      if (props.unknownTotal) return false;
+      return props.modelValue < totalPages.value - 1;
+   });
+
    function goToPage(p: number) {
-      const page = Math.min(Math.max(p, 0), totalPages.value - 1);
+      const maxPage = props.unknownTotal && props.hasMore ? p : totalPages.value - 1;
+      const page = Math.min(Math.max(p, 0), maxPage);
       emit('update:modelValue', page);
    }
 
@@ -83,7 +98,10 @@
          >
             &lt;
          </button>
-         <span @click="pageSpanClick" class="page-display"
+         <span
+            @click="unknownTotal ? null : pageSpanClick"
+            class="page-display"
+            :class="{ 'no-edit': unknownTotal }"
             >Page
             <span v-if="!editCurrentPage">{{ pageDisplay }}</span>
             <input
@@ -98,14 +116,14 @@
                @keydown.enter="editCurrentPage = false"
                @blur="editCurrentPage = false"
             />
-            / {{ totalPages }}</span
+            / {{ displayTotalPages }}</span
          >
          <button
             type="button"
             aria-label="Next Page"
             title="Next Page"
             @click="goToPage(modelValue + 1)"
-            :disabled="modelValue >= totalPages - 1"
+            :disabled="!canGoNext"
          >
             &gt;
          </button>
@@ -114,7 +132,7 @@
             aria-label="Last Page"
             title="Last Page"
             @click="goToPage(totalPages - 1)"
-            :disabled="modelValue >= totalPages - 1"
+            :disabled="!canGoLast"
          >
             &gt;|
          </button>
@@ -165,6 +183,11 @@
    .page-display {
       cursor: pointer;
    }
+
+   .page-display.no-edit {
+      cursor: default;
+   }
+
    .page-input {
       width: 50px;
    }

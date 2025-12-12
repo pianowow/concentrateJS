@@ -1,46 +1,135 @@
 <script setup lang="ts">
-   import { ref, toRefs, computed, watch } from 'vue';
+   import { ref, toRefs, computed, watch, shallowReactive, onUnmounted } from 'vue';
    import type { Player, Play } from '../ts/player';
    import { mapsToColors } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
    import BoardGrid from './BoardGrid.vue';
    import PagerControls from './PagerControls.vue';
+   import { useChunkedComputation } from '../ts/useChunkedComputation';
 
    const props = defineProps<{
       boardLetters: string;
-      player: Player | null;
+      player: Player;
       searchResults: Play[];
       boardPreviewCellSize: number;
       move: number;
       wordFilter: string;
+      hideLosingPlays: boolean;
    }>();
 
    const emit = defineEmits<{
       (e: 'add-to-history', play: Play): void;
    }>();
 
-   const { boardLetters, player, searchResults, boardPreviewCellSize, move, wordFilter } =
-      toRefs(props);
+   const {
+      boardLetters,
+      player,
+      searchResults,
+      boardPreviewCellSize,
+      move,
+      wordFilter,
+      hideLosingPlays,
+   } = toRefs(props);
 
    // Lightweight pager state
    const pageSize = ref(20);
    const currentPage = ref(0);
+
+   // Endgame computation tracking
+   const endgameCache = shallowReactive(new Map<Play, { ending_soon: boolean; losing: boolean }>());
+   const { computeChunked, abort, isComputing } = useChunkedComputation();
+   const computeProgress = ref({ processed: 0, total: 0 });
+
+   onUnmounted(() => {
+      abort();
+   });
+
+   // exact pattern word filter
    const filteredResults = computed(() => {
       const q = (wordFilter.value || '').trim().toUpperCase();
       if (!q) return searchResults.value;
       return searchResults.value.filter((p) => (p.word || '').toUpperCase().includes(q));
    });
+
+   const displayableResults = computed(() => {
+      if (hideLosingPlays.value) {
+         return filteredResults.value.filter((p) => {
+            const loses = move.value === 1 ? p.score < -999 : p.score > 999;
+            const cached = endgameCache.get(p);
+            return cached !== undefined && !cached.losing && !loses;
+         });
+      } else {
+         return filteredResults.value;
+      }
+   });
+
    const pagedResults = computed(() => {
       const start = currentPage.value * pageSize.value;
-      return filteredResults.value.slice(start, start + pageSize.value);
+      return displayableResults.value.slice(start, start + pageSize.value);
    });
+
+   const hasMoreResults = computed(() => {
+      if (!hideLosingPlays.value) return false; //Not used when not filtering
+      const currentEnd = (currentPage.value + 1) * pageSize.value;
+      const hasMoreDisplayable = displayableResults.value.length > currentEnd;
+      const hasUncomputed = filteredResults.value.some((p) => p.ending_soon === undefined);
+      return hasMoreDisplayable || hasUncomputed;
+   });
+
    const rowHeightPx = computed(() => boardPreviewCellSize.value * 5 + 4);
+
    function addToHistory(play: Play) {
       emit('add-to-history', play);
    }
-   watch([wordFilter, searchResults], () => {
-      currentPage.value = 0;
-   });
+   /**
+    * Compute endgame for plays on the current page only (synchronous, fast)
+    */
+   function computeEndgameForPage() {
+      for (const play of pagedResults.value) {
+         if (endgameCache.has(play)) continue;
+
+         const [ending_soon, losing] = player.value.endgameCheck(
+            boardLetters.value,
+            play.blue_map,
+            play.red_map,
+            move.value
+         );
+         play.ending_soon = ending_soon;
+         play.losing = losing;
+         endgameCache.set(play, { ending_soon, losing });
+      }
+   }
+
+   function computeEndgameChunked() {
+      const results = filteredResults.value;
+      const uncachedPlays = results.filter((p) => !endgameCache.has(p));
+
+      if (uncachedPlays.length === 0) return;
+
+      computeProgress.value = { processed: endgameCache.size, total: results.length };
+
+      computeChunked(
+         uncachedPlays,
+         (play) => {
+            const [ending_soon, losing] = player.value.endgameCheck(
+               boardLetters.value,
+               play.blue_map,
+               play.red_map,
+               move.value
+            );
+            return { ending_soon, losing };
+         },
+         (batchResults) => {
+            for (const { index, result } of batchResults) {
+               const play = uncachedPlays[index]!;
+               play.ending_soon = result.ending_soon;
+               play.losing = result.losing;
+               endgameCache.set(play, result);
+            }
+            computeProgress.value.processed = endgameCache.size;
+         }
+      );
+   }
 
    /**
     * Returns the value of the Finish column for a play
@@ -66,30 +155,59 @@
       }
    }
 
-   function computeEndgameForCurrentPage() {
-      if (!player.value) return;
-      for (const play of pagedResults.value) {
-         const [ending_soon, losing] = player.value.endgameCheck(
-            boardLetters.value,
-            play.blue_map,
-            play.red_map,
-            move.value
-         );
-         play.ending_soon = ending_soon;
-         play.losing = losing;
-      }
-   }
+   // reset cache when source data changes
    watch(
-      [currentPage, searchResults, player, boardLetters, wordFilter, pageSize],
+      [searchResults, player, boardLetters],
       () => {
-         computeEndgameForCurrentPage();
+         abort();
+         endgameCache.clear();
+         currentPage.value = 0;
+         computeProgress.value = { processed: 0, total: 0 };
+         computeEndgameForPage();
       },
       { immediate: true }
    );
+
+   // compute more when pagination or filter changes
+   watch(hideLosingPlays, () => {
+      if (hideLosingPlays.value) {
+         computeEndgameChunked();
+      } else {
+         abort();
+         computeEndgameForPage();
+      }
+   });
+
+   watch([currentPage, pageSize], () => {
+      if (!hideLosingPlays.value) {
+         computeEndgameForPage();
+      }
+   });
+
+   // reset to first page when filters change
+   watch([wordFilter, hideLosingPlays], () => {
+      currentPage.value = 0;
+   });
 </script>
 
 <template>
    <div class="results-grid">
+      <div v-if="isComputing && hideLosingPlays" class="loading-overlay">
+         <span>Computing endgame results...</span>
+         <div class="loading-content">
+            <span>Analyzing plays...</span>
+            <span class="progress text">
+               {{ computeProgress.processed.toLocaleString() }} /
+               {{ computeProgress.total.toLocaleString() }}
+            </span>
+         </div>
+         <div class="progress-bar">
+            <div
+               class="progress-fill"
+               :style="{ width: (computeProgress.processed / computeProgress.total) * 100 + '%' }"
+            ></div>
+         </div>
+      </div>
       <div class="table-wrapper">
          <div class="header-container">
             <table class="results-table">
@@ -182,8 +300,10 @@
       </div>
       <PagerControls
          v-model="currentPage"
-         :total-items="filteredResults.length"
+         :total-items="displayableResults.length"
          :page-size="pageSize"
+         :unknown-total="hideLosingPlays"
+         :has-more="hasMoreResults"
          @update:page-size="
             pageSize = $event;
             currentPage = 0;
@@ -345,6 +465,35 @@
       opacity: 0.05;
       pointer-events: none;
       z-index: 2;
+   }
+   .loading-overlay {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+   }
+   .loading-content {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+   }
+
+   .progress-text {
+      font-size: 0.9em;
+      opacity: 0.8;
+   }
+
+   .progress-bar {
+      width: 270px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+   }
+
+   .progress-fill {
+      height: 100%;
+      background: var(--theme-defended-blue);
+      transition: width 0.1s ease;
    }
 
    @media (max-width: 900px) {

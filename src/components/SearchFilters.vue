@@ -3,12 +3,14 @@
       needLetters: string;
       notLetters: string;
       wordFilter: string;
+      hideLosingPlays: boolean;
    }>();
 
    const emit = defineEmits<{
       'update:needLetters': [value: string];
       'update:notLetters': [value: string];
       'update:wordFilter': [value: string];
+      'update:hideLosingPlays': [value: boolean];
    }>();
 
    function onNeedInput(event: Event) {
@@ -24,6 +26,10 @@
    function onWordFilterInput(event: Event) {
       const target = event.target as HTMLInputElement;
       emit('update:wordFilter', target.value);
+   }
+   function onHideLosingPlaysChange(event: Event) {
+      const target = event.target as HTMLInputElement;
+      emit('update:hideLosingPlays', target.checked);
    }
 </script>
 
@@ -68,6 +74,14 @@
             />
             <label for="word-filter-input" class="text-field__label">Exact Pattern</label>
             <div class="text-field__underline"></div>
+         </div>
+         <div class="checkbox-area">
+            <input
+               id="hide-losing-plays"
+               type="checkbox"
+               value="props.hideLosingPlays"
+               @change="onHideLosingPlaysChange"
+            /><label for="hide-losing-plays">Hide Losing Plays</label>
          </div>
       </div>
    </div>

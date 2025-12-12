@@ -766,7 +766,7 @@ export class Player {
       return plays;
    }
 
-   endgameCheck(allLetters: string, blue: number, red: number, move: number) {
+   endgameCheck(allLetters: string, blue: number, red: number, move: number): [boolean, boolean] {
       //called by interface to check a page of search results at a time
       //purpose: an extra depth of search to check if a play loses or forces the end soon
       let zeroletters = '';

@@ -27,7 +27,7 @@
       convertBoardScore,
       reducedColors,
    } from '../ts/board';
-   import { roundTo } from '../ts/util';
+   import { roundTo, strCount } from '../ts/util';
    import {
       type HistoryTree as HistoryTreeType,
       type HistoryNode,
@@ -194,8 +194,9 @@
          wordFilterDebounced.value = val;
       }, DEBOUNCE_MS);
    });
+   const hideLosingPlays = ref(false);
    const searchResults: Ref<Play[]> = shallowRef<Play[]>([]);
-   let player: Ref<Player | null> = shallowRef<Player | null>(null);
+   let player: Ref<Player>;
    const boardPreviewCellSize = 9;
    const isMobile = ref(false);
    const navPreviewCellSize = computed(() => (isMobile.value ? 9 : 25));
@@ -327,17 +328,15 @@
       }
 
       // Recalculate scores and reset player state
-      if (player.value) {
-         player.value.possible(boardLettersUpperCase.value);
-         for (const node of historyTree.value.nodes.values()) {
-            const s: Score = convertBoardScore(node.colors.toUpperCase());
-            node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
-         }
-         // Get path to selected node for resetplayed
-         const path = selectedNode ? getPathToNode(historyTree.value, selectedNode.id) : [];
-         const played = path.slice(1).map((n) => n.text);
-         player.value.resetplayed(boardLettersUpperCase.value, played);
+      player.value.possible(boardLettersUpperCase.value);
+      for (const node of historyTree.value.nodes.values()) {
+         const s: Score = convertBoardScore(node.colors.toUpperCase());
+         node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
       }
+      // Get path to selected node for resetplayed
+      const path = selectedNode ? getPathToNode(historyTree.value, selectedNode.id) : [];
+      const played = path.slice(1).map((n) => n.text);
+      player.value.resetplayed(boardLettersUpperCase.value, played);
    }
 
    function selectGame(gameId: string) {
@@ -455,16 +454,14 @@
                }
             }
 
-            if (player.value) {
-               player.value.possible(boardLettersUpperCase.value);
-               for (const node of tree.nodes.values()) {
-                  const s: Score = convertBoardScore(node.colors.toUpperCase());
-                  node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
-               }
-               const path = selectedNode ? getPathToNode(tree, selectedNode.id) : [];
-               const played = path.slice(1).map((n) => n.text);
-               player.value.resetplayed(boardLettersUpperCase.value, played);
+            player.value.possible(boardLettersUpperCase.value);
+            for (const node of tree.nodes.values()) {
+               const s: Score = convertBoardScore(node.colors.toUpperCase());
+               node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
             }
+            const path = selectedNode ? getPathToNode(tree, selectedNode.id) : [];
+            const played = path.slice(1).map((n) => n.text);
+            player.value.resetplayed(boardLettersUpperCase.value, played);
 
             return gameId;
          }
@@ -490,7 +487,7 @@
       window.addEventListener('resize', updateIsMobile);
 
       let wordList: string[] = await getWordList(wordListSelected.value, useBadWords.value);
-      player.value = markRaw(new Player(undefined, undefined, wordList));
+      player = shallowRef<Player>(markRaw(new Player(undefined, undefined, wordList)));
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
 
       // Load app state from local storage
@@ -561,11 +558,9 @@
 
    function clearHistory() {
       let score = 0;
-      if (player.value) {
-         player.value.possible(boardLettersUpperCase.value);
-         let s: Score = convertBoardScore(boardColorsDefended.value);
-         score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
-      }
+      player.value.possible(boardLettersUpperCase.value);
+      let s: Score = convertBoardScore(boardColorsDefended.value);
+      score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 2);
 
       resetNodeIdCounter(0);
       const rootNode = createRootNode(
@@ -596,11 +591,7 @@
    }
 
    function runSearch() {
-      if (boardLetters.value.length == 25 && boardColorsDefended.value.split('w').length > 1) {
-         if (!player.value) {
-            searchResults.value = [];
-            return;
-         }
+      if (boardLetters.value.length == 25 && strCount(boardColorsDefended.value, 'w') > 0) {
          const letters = boardLettersUpperCase.value;
          const colors = colorLettersUpperCase.value;
          const need = needLettersUpperCase.value;
@@ -649,7 +640,7 @@
       player.value = markRaw(new Player(undefined, undefined, wordList));
       if (import.meta.env.DEV) window.player = player;
       // Recalculate scores for current game
-      if (player.value && boardLetters.value.length === 25) {
+      if (boardLetters.value.length === 25) {
          player.value.possible(boardLettersUpperCase.value);
          for (const node of historyTree.value.nodes.values()) {
             const s: Score = convertBoardScore(node.colors.toUpperCase());
@@ -700,7 +691,7 @@
       // Trigger reactivity by creating new tree reference
       historyTree.value = { ...historyTree.value, nodes: new Map(historyTree.value.nodes) };
 
-      player.value!.playword(boardLettersUpperCase.value, word);
+      player.value.playword(boardLettersUpperCase.value, word);
       selectedNodeId.value = newNode.id;
       colorLetters.value = colors;
       moveIndicator.value = -moveIndicator.value;
@@ -772,7 +763,7 @@
       historyTree.value = { ...historyTree.value, nodes: new Map(historyTree.value.nodes) };
 
       // Reset player state
-      if (player.value && selectedNodeId.value) {
+      if (selectedNodeId.value) {
          const path = getPathToNode(historyTree.value, selectedNodeId.value);
          const played = path.slice(1).map((n) => n.text);
          player.value.resetplayed(boardLettersUpperCase.value, played);
@@ -796,7 +787,7 @@
       // Reset played words to path up to this node
       const path = getPathToNode(historyTree.value, node.id);
       const played = path.slice(1).map((n) => n.text);
-      player.value?.resetplayed(boardLettersUpperCase.value, played);
+      player.value.resetplayed(boardLettersUpperCase.value, played);
 
       updateQueryParams();
       saveToLocalStorage();
@@ -871,6 +862,7 @@
             :needLetters="needLetters"
             :notLetters="notLetters"
             :wordFilter="wordFilter"
+            :hideLosingPlays="hideLosingPlays"
             @update:needLetters="
                needLetters = $event;
                syncState();
@@ -880,14 +872,17 @@
                syncState();
             "
             @update:wordFilter="wordFilter = $event"
+            @update:hideLosingPlays="hideLosingPlays = $event"
          />
          <SearchResults
+            v-if="player"
             :boardLetters="boardLettersUpperCase"
             :player="player"
             :searchResults="searchResults"
             :boardPreviewCellSize="boardPreviewCellSize"
             :move="moveIndicator"
             :wordFilter="wordFilterDebounced"
+            :hideLosingPlays="hideLosingPlays"
             @add-to-history="addPlayToHistory"
          ></SearchResults>
       </div>
