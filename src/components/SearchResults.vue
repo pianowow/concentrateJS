@@ -322,7 +322,7 @@
          v-model="currentPage"
          :total-items="displayableResults.length"
          :page-size="pageSize"
-         :unknown-total="hideLosingPlays"
+         :unknown-total="hideLosingPlays && isComputing"
          :has-more="hasMoreResults"
          @update:page-size="
             pageSize = $event;
