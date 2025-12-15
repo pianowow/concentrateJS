@@ -601,18 +601,20 @@ export class Player {
       return category.single % 2 === 0 && category.double % 2 === 0;
    }
 
-   // Fast grouping: use a 26-bit presence mask for letters in 'anyl'
-   private groupWordsByPresence(words: string[], presentMask: number): Record<number, string[]> {
-      const groups: Record<number, string[]> = Object.create(null);
+   // Fast grouping: use a 26-bit presence mask for filtering, string key with counts
+   private groupWordsByPresence(words: string[], presentMask: number): Record<string, string[]> {
+      const groups: Record<string, string[]> = Object.create(null);
       for (const word of words) {
-         let groupMask = 0;
+         const relevant: string[] = [];
          for (let i = 0; i < word.length; i++) {
-            const bit = 1 << (word.charCodeAt(i) - 65); // 'A'..'Z' -> 0..25
-            groupMask |= bit & presentMask;
+            const idx = word.charCodeAt(i) - 65;
+            if (presentMask & (1 << idx)) {
+               relevant.push(word[i]!);
+            }
          }
-         const existing = groups[groupMask];
-         if (existing) existing.push(word);
-         else groups[groupMask] = [word];
+         relevant.sort();
+         const key = relevant.join('');
+         (groups[key] ??= []).push(word);
       }
       return groups;
    }
@@ -673,20 +675,11 @@ export class Player {
       wordList = this.concentrate(allLetters, needLetters, notLetters, anyl);
       const wordGroups = this.groupWordsByPresence(wordList, anylMask);
       const plays = [];
-      for (const groupMaskStr in wordGroups) {
-         const groupMask = +groupMaskStr;
-         const groupWords = wordGroups[groupMask];
+      for (const groupLetters in wordGroups) {
+         const groupWords = wordGroups[groupLetters];
          // scores formed by different arrangements of the same group
          // entries of the form [blue,red]:score
          const scores: Map<number, number> = new Map();
-         let groupLetters = '';
-         let mask = groupMask;
-         while (mask) {
-            const bit = mask & -mask;
-            const idx = 31 - Math.clz32(bit);
-            groupLetters += String.fromCharCode(65 + idx);
-            mask ^= bit;
-         }
          this.arrange(allLetters, groupLetters, s, scores, dontuse, move);
          let blue, red;
          for (const [position, score] of scores) {
@@ -813,15 +806,7 @@ export class Player {
             };
          }
          const wordgroups = this.groupWordsByPresence(gameendingwords, anylMask);
-         for (const groupMaskStr in wordgroups) {
-            let gameendingword = '';
-            let mask = +groupMaskStr;
-            while (mask) {
-               const bit = mask & -mask;
-               const idx = 31 - Math.clz32(bit);
-               gameendingword += String.fromCharCode(65 + idx);
-               mask ^= bit;
-            }
+         for (const gameendingword in wordgroups) {
             const scores = new Map();
             const used: number[] = [];
             this.arrange(
