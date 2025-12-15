@@ -13,6 +13,7 @@ describe('defendedMap', () => {
       'bbbwwbbbbbbwbwwwwwbbbwbrw',
       'rrrrrrrbrrrrrrwrwrrrrrrrr',
       'bwwwwwwwwwwwwwwwwwwwrrrrr',
+      'bbbbbbbbbbbwwwrrrrrrrrrrr',
    ];
    for (const [input, output] of cases) {
       it(`returns ${output} for input ${input}`, () => {
@@ -21,7 +22,8 @@ describe('defendedMap', () => {
    }
    for (const colors of randomCases) {
       it(`converts round trip ${colors}`, () => {
-         const s: Score = convertBoardScore(colors);
+         const reduced = reducedColors(colors);
+         const s: Score = convertBoardScore(reduced);
          expect(mapsToColors(s.blue, s.red).toLowerCase()).toEqual(colors);
       });
    }

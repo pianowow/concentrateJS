@@ -280,11 +280,13 @@ export function reducedColors(colors: string) {
    let outCount = 0;
    while (outCount < 25) {
       const color = colors.charAt(colorIdx);
+      let goNextColor: boolean = true;
       if (prevColor != color || !color) {
          if (prevCount > 9) {
             out += prevColor + '9';
             prevCount -= 9;
             outCount += 9;
+            goNextColor = false;
          } else if (prevCount > 2) {
             out += prevColor + prevCount;
             prevCount = 1;
@@ -303,7 +305,9 @@ export function reducedColors(colors: string) {
       } else {
          prevCount += 1;
       }
-      colorIdx += 1;
+      if (goNextColor) {
+         colorIdx += 1;
+      }
    }
    return out;
 }
