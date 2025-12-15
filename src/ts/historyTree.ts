@@ -164,7 +164,7 @@ export function serializeTreeToHash(tree: HistoryTree): string {
 
       const t = node.type === 1 ? 'b' : node.type === -1 ? 'r' : 'i';
       const parentPart = node.parentId ?? '';
-      parts.push(`${node.id}-${parentPart}-${t}-${node.text}-${node.colors}.`);
+      parts.push(`${node.id}-${parentPart}-${t}-${node.text}-${node.colors}`);
 
       // Main child first, then alternates (preserve order for parsing)
       for (const childId of node.childIds) {
@@ -176,7 +176,7 @@ export function serializeTreeToHash(tree: HistoryTree): string {
       traverse(tree.rootId);
    }
 
-   return parts.join('');
+   return parts.join('.');
 }
 
 /**
