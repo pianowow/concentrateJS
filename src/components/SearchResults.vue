@@ -1,5 +1,5 @@
 <script setup lang="ts">
-   import { ref, toRefs, computed, watch, shallowReactive, onUnmounted } from 'vue';
+   import { ref, toRefs, computed, watch, onUnmounted } from 'vue';
    import type { Player, Play } from '../ts/player';
    import { mapsToColors } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
@@ -36,7 +36,8 @@
    const currentPage = ref(0);
 
    // Endgame computation tracking
-   const endgameCache = shallowReactive(new Map<Play, { ending_soon: boolean; losing: boolean }>());
+   const endgameCache = new Map<Play, { ending_soon: boolean; losing: boolean }>();
+   const endgameCacheVersion = ref(0);
    const { computeChunked, abort, isComputing } = useChunkedComputation();
    const computeProgress = ref({ processed: 0, total: 0 });
 
@@ -52,6 +53,7 @@
    });
 
    const displayableResults = computed(() => {
+      void endgameCacheVersion.value;
       if (hideLosingPlays.value) {
          return filteredResults.value.filter((p) => {
             const loses = move.value === 1 ? p.score < -999 : p.score > 999;
@@ -108,7 +110,10 @@
 
       computeProgress.value = { processed: endgameCache.size, total: results.length };
 
-      computeChunked(
+      let lastProgressUpdate = Date.now();
+      const PROGRESS_UPDATE_INTERVAL = 200; //ms
+
+      computeChunked<Play, { ending_soon: boolean; losing: boolean }>(
          uncachedPlays,
          (play) => {
             const [ending_soon, losing] = player.value.endgameCheck(
@@ -124,8 +129,19 @@
                const play = uncachedPlays[index]!;
                play.ending_soon = result.ending_soon;
                play.losing = result.losing;
-               endgameCache.set(play, result);
+               // use Map prototype to delay vue reactivity
+               Map.prototype.set.call(endgameCache, play, result);
             }
+            const now = Date.now();
+            if (now - lastProgressUpdate > PROGRESS_UPDATE_INTERVAL) {
+               computeProgress.value.processed = endgameCache.size;
+               lastProgressUpdate = now;
+               endgameCacheVersion.value++;
+            }
+         },
+         50,
+         100,
+         () => {
             computeProgress.value.processed = endgameCache.size;
          }
       );
@@ -163,7 +179,11 @@
          endgameCache.clear();
          currentPage.value = 0;
          computeProgress.value = { processed: 0, total: 0 };
-         computeEndgameForPage();
+         if (hideLosingPlays.value) {
+            computeEndgameChunked();
+         } else {
+            computeEndgameForPage();
+         }
       },
       { immediate: true }
    );

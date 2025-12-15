@@ -9,7 +9,8 @@ export function useChunkedComputation() {
       processFn: (item: T, index: number) => R,
       onBatch: (results: Array<{ index: number; result: R }>) => void,
       chunkSize = 100,
-      yieldEvery = 50
+      yieldEvery = 50,
+      onComplete?: () => void
    ): Promise<void> {
       // Abort any previous computation
       abortController?.abort();
@@ -42,6 +43,8 @@ export function useChunkedComputation() {
          if (batch.length > 0) {
             onBatch(batch);
          }
+
+         onComplete?.();
       } finally {
          if (!signal.aborted) {
             isComputing.value = false;
