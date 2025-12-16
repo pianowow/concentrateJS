@@ -17,17 +17,18 @@
       boardLetters: string;
       boardPreviewCellSize: number;
       selectedNodeId: string | null;
+      pageSize: number;
    }>();
 
    const emit = defineEmits<{
       (e: 'node-click', node: HistoryNode): void;
       (e: 'node-delete', node: HistoryNode): void;
+      (e: 'update:pageSize', pageSize: number): void;
    }>();
 
-   const { historyTree, boardLetters, boardPreviewCellSize, selectedNodeId } = toRefs(props);
+   const { historyTree, boardLetters, boardPreviewCellSize, selectedNodeId, pageSize } =
+      toRefs(props);
 
-   // Pager state (local to this component)
-   const pageSize = ref(20);
    const currentPage = ref(0);
 
    // Flatten tree and compute line info
@@ -195,7 +196,7 @@
          v-model="currentPage"
          :total-items="flattenedRows.length"
          :page-size="pageSize"
-         @update:page-size="pageSize = $event"
+         @update:page-size="emit('update:pageSize', $event)"
       />
    </div>
 </template>

@@ -15,10 +15,12 @@
       move: number;
       wordFilter: string;
       hideLosingPlays: boolean;
+      pageSize: number;
    }>();
 
    const emit = defineEmits<{
       (e: 'add-to-history', play: Play): void;
+      (e: 'update:pageSize', pageSize: number): void;
    }>();
 
    const {
@@ -29,10 +31,9 @@
       move,
       wordFilter,
       hideLosingPlays,
+      pageSize,
    } = toRefs(props);
 
-   // Lightweight pager state
-   const pageSize = ref(20);
    const currentPage = ref(0);
 
    // Endgame computation tracking
@@ -325,7 +326,7 @@
          :unknown-total="hideLosingPlays && isComputing"
          :has-more="hasMoreResults"
          @update:page-size="
-            pageSize = $event;
+            emit('update:pageSize', $event);
             currentPage = 0;
          "
       />

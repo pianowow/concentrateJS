@@ -180,6 +180,7 @@
       return answer;
    });
    const historyTree: Ref<HistoryTreeType> = shallowRef(createEmptyTree());
+   const historyTreePageSize = ref(20);
    const selectedNodeId: Ref<string | null> = ref(null);
    const needLetters = ref('');
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
@@ -196,6 +197,7 @@
    });
    const hideLosingPlays = ref(false);
    const searchResults: Ref<Play[]> = shallowRef<Play[]>([]);
+   const searchResultsPageSize = ref(20);
    let player: Ref<Player>;
    const boardPreviewCellSize = 9;
    const isMobile = ref(false);
@@ -222,6 +224,8 @@
       useBadWords: boolean;
       games: StoredGameState[];
       selectedGameId: string | null;
+      historyTreePageSize: number;
+      searchResultsPageSize: number;
    }
 
    function generateGameId(): string {
@@ -249,6 +253,8 @@
          useBadWords: useBadWords.value,
          games: games.value,
          selectedGameId: selectedGameId.value,
+         historyTreePageSize: historyTreePageSize.value,
+         searchResultsPageSize: searchResultsPageSize.value,
       };
       try {
          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
@@ -278,6 +284,13 @@
                // Ensure useBadWords has a valid default
                if (typeof parsed.useBadWords !== 'boolean') {
                   parsed.useBadWords = false;
+               }
+               // Ensure page sizes have a value
+               if (typeof parsed.historyTreePageSize !== 'number') {
+                  parsed.historyTreePageSize = 20;
+               }
+               if (typeof parsed.searchResultsPageSize !== 'number') {
+                  parsed.searchResultsPageSize = 20;
                }
                return parsed;
             }
@@ -498,6 +511,8 @@
          useBadWords.value = storedState.useBadWords;
          games.value = storedState.games;
          selectedGameId.value = storedState.selectedGameId;
+         historyTreePageSize.value = storedState.historyTreePageSize;
+         searchResultsPageSize.value = storedState.searchResultsPageSize;
       } else {
          // Set theme based on system preference
          const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
@@ -666,6 +681,11 @@
       }
    }
 
+   function updateHistoryPageSize(size: number) {
+      historyTreePageSize.value = size;
+      saveToLocalStorage();
+   }
+
    function addPlayToHistory(play: Play) {
       const colors = reducedColors(mapsToColors(play.blue_map, play.red_map));
       const word = (play.word ?? '').toUpperCase();
@@ -703,6 +723,11 @@
       updateQueryParams();
       saveToLocalStorage();
       runSearch();
+   }
+
+   function updateSearchResultsPageSize(size: number) {
+      searchResultsPageSize.value = size;
+      saveToLocalStorage();
    }
 
    function deleteNodeAndChildren(nodeId: string): void {
@@ -852,8 +877,10 @@
             :boardLetters="boardLettersUpperCase"
             :boardPreviewCellSize="boardPreviewCellSize"
             :selectedNodeId="selectedNodeId"
+            :pageSize="historyTreePageSize"
             @node-click="onHistoryNodeClicked"
             @node-delete="onHistoryNodeDelete"
+            @update:pageSize="updateHistoryPageSize"
          />
       </div>
       <div class="right-pane">
@@ -883,7 +910,9 @@
             :move="moveIndicator"
             :wordFilter="wordFilterDebounced"
             :hideLosingPlays="hideLosingPlays"
+            :pageSize="searchResultsPageSize"
             @add-to-history="addPlayToHistory"
+            @update:pageSize="updateSearchResultsPageSize"
          ></SearchResults>
       </div>
    </div>

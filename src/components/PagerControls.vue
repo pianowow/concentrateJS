@@ -1,5 +1,5 @@
 <script setup lang="ts">
-   import { ref, computed, watch, nextTick } from 'vue';
+   import { ref, computed, nextTick } from 'vue';
 
    const props = defineProps<{
       totalItems: number;
@@ -17,11 +17,14 @@
    const editCurrentPage = ref(false);
    const pageInput = ref<HTMLInputElement | null>(null);
    const pageDisplay = computed(() => props.modelValue + 1);
-   const localPageSize = ref(props.pageSize);
-
-   const totalPages = computed(() =>
-      Math.max(1, Math.ceil(props.totalItems / localPageSize.value))
-   );
+   const pageSizeAllowedValues = [20, 50, 100];
+   const pageSize = computed({
+      get: () => {
+         return pageSizeAllowedValues.includes(props.pageSize) ? props.pageSize : 20;
+      },
+      set: (val: number) => emit('update:pageSize', val),
+   });
+   const totalPages = computed(() => Math.max(1, Math.ceil(props.totalItems / pageSize.value)));
 
    const displayTotalPages = computed(() => (props.unknownTotal ? '?' : totalPages.value));
 
@@ -54,17 +57,6 @@
          goToPage(val - 1); // Input is 1-indexed, internal is 0-indexed
       }
    }
-
-   watch(localPageSize, (newSize) => {
-      emit('update:pageSize', newSize);
-   });
-
-   watch(
-      () => props.pageSize,
-      (newSize) => {
-         localPageSize.value = newSize;
-      }
-   );
 </script>
 
 <template>
@@ -72,10 +64,10 @@
       <div class="pager-left">
          <label>
             Page Size:
-            <select v-model.number="localPageSize" class="pager-select">
-               <option :value="20">20</option>
-               <option :value="50">50</option>
-               <option :value="100">100</option>
+            <select v-model.number="pageSize" class="pager-select">
+               <option v-for="(size, index) of pageSizeAllowedValues" :value="size" :key="index">
+                  {{ size }}
+               </option>
             </select>
          </label>
       </div>
