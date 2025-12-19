@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-import InterfaceView from '../components/InterfaceView.vue';
+import AnalysisView from '../components/AnalysisView.vue';
 import ArenaView from '../components/ArenaView.vue';
 
 const routes = [
-   { path: '/', component: InterfaceView },
+   { path: '/', component: AnalysisView },
    { path: '/arena', component: ArenaView },
 ];
 

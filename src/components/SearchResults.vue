@@ -6,21 +6,21 @@
    import BoardGrid from './BoardGrid.vue';
    import PagerControls from './PagerControls.vue';
    import { useChunkedComputation } from '../ts/useChunkedComputation';
+   import { useAnalysisStore } from '@/stores/analysisStore';
+
+   const analysisStore = useAnalysisStore();
 
    const props = defineProps<{
       boardLetters: string;
       player: Player;
       searchResults: Play[];
       boardPreviewCellSize: number;
-      move: number;
       wordFilter: string;
       hideLosingPlays: boolean;
-      pageSize: number;
    }>();
 
    const emit = defineEmits<{
       (e: 'add-to-history', play: Play): void;
-      (e: 'update:pageSize', pageSize: number): void;
    }>();
 
    const {
@@ -28,10 +28,8 @@
       player,
       searchResults,
       boardPreviewCellSize,
-      move,
       wordFilter,
       hideLosingPlays,
-      pageSize,
    } = toRefs(props);
 
    const currentPage = ref(0);
@@ -57,7 +55,7 @@
       void endgameCacheVersion.value;
       if (hideLosingPlays.value) {
          return filteredResults.value.filter((p) => {
-            const loses = move.value === 1 ? p.score < -999 : p.score > 999;
+            const loses = analysisStore.moveIndicator === 1 ? p.score < -999 : p.score > 999;
             const cached = endgameCache.get(p);
             return cached !== undefined && !cached.losing && !loses;
          });
@@ -67,13 +65,13 @@
    });
 
    const pagedResults = computed(() => {
-      const start = currentPage.value * pageSize.value;
-      return displayableResults.value.slice(start, start + pageSize.value);
+      const start = currentPage.value * analysisStore.searchResultsPageSize;
+      return displayableResults.value.slice(start, start + analysisStore.searchResultsPageSize);
    });
 
    const hasMoreResults = computed(() => {
       if (!hideLosingPlays.value) return false; //Not used when not filtering
-      const currentEnd = (currentPage.value + 1) * pageSize.value;
+      const currentEnd = (currentPage.value + 1) * analysisStore.searchResultsPageSize;
       const hasMoreDisplayable = displayableResults.value.length > currentEnd;
       const hasUncomputed = filteredResults.value.some((p) => p.ending_soon === undefined);
       return hasMoreDisplayable || hasUncomputed;
@@ -95,7 +93,7 @@
             boardLetters.value,
             play.blue_map,
             play.red_map,
-            move.value
+            analysisStore.moveIndicator
          );
          play.ending_soon = ending_soon;
          play.losing = losing;
@@ -121,7 +119,7 @@
                boardLetters.value,
                play.blue_map,
                play.red_map,
-               move.value
+               analysisStore.moveIndicator
             );
             return { ending_soon, losing };
          },
@@ -153,9 +151,15 @@
     * @param play - the play to evaluate
     */
    function computeFinish(play: Play): string {
-      if ((play.score > 999 && move.value == 1) || (play.score < -999 && move.value == -1)) {
+      if (
+         (play.score > 999 && analysisStore.moveIndicator == 1) ||
+         (play.score < -999 && analysisStore.moveIndicator == -1)
+      ) {
          return '<span title="Winning play">🏆</span>';
-      } else if ((play.score > 999 && move.value == -1) || (play.score < -999 && move.value == 1)) {
+      } else if (
+         (play.score > 999 && analysisStore.moveIndicator == -1) ||
+         (play.score < -999 && analysisStore.moveIndicator == 1)
+      ) {
          return '<span title="Losing play">💀</span>';
       } else {
          if (play.ending_soon === true) {
@@ -199,7 +203,7 @@
       }
    });
 
-   watch([currentPage, pageSize], () => {
+   watch([currentPage, analysisStore.searchResultsPageSize], () => {
       if (!hideLosingPlays.value) {
          computeEndgameForPage();
       }
@@ -322,11 +326,11 @@
       <PagerControls
          v-model="currentPage"
          :total-items="displayableResults.length"
-         :page-size="pageSize"
+         :page-size="analysisStore.searchResultsPageSize"
          :unknown-total="hideLosingPlays && isComputing"
          :has-more="hasMoreResults"
          @update:page-size="
-            emit('update:pageSize', $event);
+            analysisStore.searchResultsPageSize = $event;
             currentPage = 0;
          "
       />

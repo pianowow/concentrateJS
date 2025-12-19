@@ -19,7 +19,6 @@
    import SearchFilters from './SearchFilters.vue';
    import { Player, Play } from '../ts/player';
    import {
-      type ThemeName,
       type ThemeConfig,
       Themes,
       mapsToColors,
@@ -29,8 +28,8 @@
    } from '../ts/board';
    import { roundTo, strCount } from '../ts/util';
    import {
-      type HistoryTree as HistoryTreeType,
       type HistoryNode,
+      arrayToTree,
       createEmptyTree,
       createRootNode,
       createMoveNode,
@@ -39,16 +38,18 @@
       serializeTreeToHash,
       parseHashToTree,
       treeToArray,
-      arrayToTree,
       resetNodeIdCounter,
    } from '../ts/historyTree';
+   import type { StoredGameState, ThemeName } from '@/ts/types';
+   import { useAnalysisStore } from '../stores/analysisStore';
+
+   const analysisStore = useAnalysisStore();
 
    const activeElement = useActiveElement();
    const isInputFocused = computed(() => activeElement.value?.tagName === 'INPUT');
 
    const themes = new Themes();
-   const themeSelected = ref<ThemeName>('Light');
-   const theme = computed<ThemeConfig>(() => themes[themeSelected.value]);
+   const theme = computed<ThemeConfig>(() => themes[analysisStore.themeSelected]);
    const themeVars = computed(() => ({
       '--theme-blue': theme.value.blue,
       '--theme-blue-text': theme.value.blueText,
@@ -70,14 +71,11 @@
       },
       { immediate: true }
    );
-   watch(themeSelected, () => {
-      saveToLocalStorage();
-   });
    const availableThemes = Object.keys(themes) as ThemeName[];
    onKeyStroke('t', () => {
       if (!isInputFocused.value) {
-         const themeIdx = availableThemes.indexOf(themeSelected.value);
-         themeSelected.value = availableThemes[(themeIdx + 1) % availableThemes.length]!;
+         const themeIdx = availableThemes.indexOf(analysisStore.themeSelected);
+         analysisStore.themeSelected = availableThemes[(themeIdx + 1) % availableThemes.length]!;
       }
    });
 
@@ -85,25 +83,29 @@
       { value: 'en', label: 'All words' },
       { value: 'reduced', label: 'Common words' },
    ];
-   const wordListSelected = ref<string>('en');
    onKeyStroke('w', () => {
       if (!isInputFocused.value) {
-         if (wordListSelected.value === 'en') {
-            wordListSelected.value = 'reduced';
+         if (analysisStore.wordListSelected === 'en') {
+            analysisStore.wordListSelected = 'reduced';
          } else {
-            wordListSelected.value = 'en';
+            analysisStore.wordListSelected = 'en';
          }
       }
    });
-   const useBadWords = ref<boolean>(false);
-   watch(wordListSelected, async () => {
-      saveToLocalStorage();
-      await reloadWordList();
-   });
-   watch(useBadWords, async () => {
-      saveToLocalStorage();
-      await reloadWordList();
-   });
+   watch(
+      () => analysisStore.wordListSelected,
+      async () => {
+         analysisStore.saveToLocalStorage();
+         await reloadWordList();
+      }
+   );
+   watch(
+      () => analysisStore.useBadWords,
+      async () => {
+         analysisStore.saveToLocalStorage();
+         await reloadWordList();
+      }
+   );
 
    const showSettings = ref(false);
    onKeyStroke(
@@ -116,7 +118,6 @@
       { passive: true }
    );
    const boardEditorRef = ref<InstanceType<typeof BoardEditor> | null>(null);
-   const moveIndicator = ref<number>(1);
    const boardLetters = ref('');
    const boardLettersUpperCase = computed(() => boardLetters.value.toUpperCase());
    const colorLetters = ref('');
@@ -179,9 +180,6 @@
       }
       return answer;
    });
-   const historyTree: Ref<HistoryTreeType> = shallowRef(createEmptyTree());
-   const historyTreePageSize = ref(20);
-   const selectedNodeId: Ref<string | null> = ref(null);
    const needLetters = ref('');
    const needLettersUpperCase = computed(() => needLetters.value.toUpperCase());
    const notLetters = ref('');
@@ -197,7 +195,6 @@
    });
    const hideLosingPlays = ref(false);
    const searchResults: Ref<Play[]> = shallowRef<Play[]>([]);
-   const searchResultsPageSize = ref(20);
    let player: Ref<Player>;
    const boardPreviewCellSize = 9;
    const isMobile = ref(false);
@@ -206,110 +203,27 @@
    function updateIsMobile() {
       isMobile.value = window.innerWidth <= 900;
    }
-   const LOCAL_STORAGE_KEY = 'concentrate-state';
-   const games: Ref<StoredGameState[]> = ref([]);
-   const selectedGameId: Ref<string | null> = ref(null);
 
-   interface StoredGameState {
-      historyNodes: HistoryNode[];
-      selectedNodeId: string | null;
-      moveIndicator: number;
-      id: string;
-      createdAt: number;
-   }
-
-   interface AppState {
-      theme: ThemeName;
-      wordList: string;
-      useBadWords: boolean;
-      games: StoredGameState[];
-      selectedGameId: string | null;
-      historyTreePageSize: number;
-      searchResultsPageSize: number;
-   }
-
-   function generateGameId(): string {
-      return `game-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-   }
-
-   function updateCurrentGameInArray() {
-      if (!selectedGameId.value) return;
-      const idx = games.value.findIndex((g) => g.id === selectedGameId.value);
-      if (idx !== -1) {
-         games.value[idx] = {
-            ...games.value[idx]!,
-            historyNodes: treeToArray(historyTree.value),
-            selectedNodeId: selectedNodeId.value,
-            moveIndicator: moveIndicator.value,
-         };
+   function selectGame(gameId: string) {
+      if (analysisStore.selectedGameId === gameId) return;
+      analysisStore.updateCurrentGameInArray();
+      const game = analysisStore.games.find((g) => g.id === gameId);
+      if (game) {
+         analysisStore.selectedGameId = gameId;
+         loadGameState(game);
+         analysisStore.saveToLocalStorage();
+         updateQueryParams();
+         runSearch();
       }
-   }
-
-   function saveToLocalStorage() {
-      updateCurrentGameInArray();
-      const state: AppState = {
-         theme: themeSelected.value,
-         wordList: wordListSelected.value,
-         useBadWords: useBadWords.value,
-         games: games.value,
-         selectedGameId: selectedGameId.value,
-         historyTreePageSize: historyTreePageSize.value,
-         searchResultsPageSize: searchResultsPageSize.value,
-      };
-      try {
-         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
-      } catch (e) {
-         console.warn('Failed to save state to local storage:', e);
-      }
-   }
-
-   function loadFromLocalStorage(): AppState | null {
-      try {
-         const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-         if (stored) {
-            const parsed = JSON.parse(stored) as AppState;
-            // Validate the parsed data has expected structure
-            if (
-               Array.isArray(parsed.games) &&
-               parsed.games.length > 0 &&
-               typeof parsed.theme === 'string'
-            ) {
-               // Ensure wordList has a valid default
-               if (
-                  !parsed.wordList ||
-                  !availableWordLists.some((wl) => wl.value === parsed.wordList)
-               ) {
-                  parsed.wordList = 'en';
-               }
-               // Ensure useBadWords has a valid default
-               if (typeof parsed.useBadWords !== 'boolean') {
-                  parsed.useBadWords = false;
-               }
-               // Ensure page sizes have a value
-               if (typeof parsed.historyTreePageSize !== 'number') {
-                  parsed.historyTreePageSize = 20;
-               }
-               if (typeof parsed.searchResultsPageSize !== 'number') {
-                  parsed.searchResultsPageSize = 20;
-               }
-               return parsed;
-            }
-         }
-      } catch (e) {
-         console.warn('Failed to load state from local storage:', e);
-         // delete local storage item we can't use
-         localStorage.removeItem(LOCAL_STORAGE_KEY);
-      }
-      return null;
    }
 
    function loadGameState(game: StoredGameState) {
-      historyTree.value = arrayToTree(game.historyNodes);
-      selectedNodeId.value = game.selectedNodeId;
-      moveIndicator.value = game.moveIndicator;
+      analysisStore.historyTree = arrayToTree(game.historyNodes);
+      analysisStore.selectedNodeId = game.selectedNodeId;
+      analysisStore.moveIndicator = game.moveIndicator;
 
       // Extract board letters from root node
-      const rootNode = historyTree.value.nodes.get(historyTree.value.rootId);
+      const rootNode = analysisStore.historyTree.nodes.get(analysisStore.historyTree.rootId);
       if (rootNode && rootNode.type === 0) {
          boardLetters.value = rootNode.text.toUpperCase();
       } else {
@@ -318,14 +232,14 @@
 
       // Set color letters from selected node or find the last node in main line
       let selectedNode: HistoryNode | undefined;
-      if (selectedNodeId.value) {
-         selectedNode = historyTree.value.nodes.get(selectedNodeId.value);
+      if (analysisStore.selectedNodeId) {
+         selectedNode = analysisStore.historyTree.nodes.get(analysisStore.selectedNodeId);
       }
       if (!selectedNode) {
          // Find last node in main line (follow first children)
          let current = rootNode;
          while (current && current.childIds.length > 0) {
-            current = historyTree.value.nodes.get(current.childIds[0]!);
+            current = analysisStore.historyTree.nodes.get(current.childIds[0]!);
          }
          selectedNode = current;
       }
@@ -342,31 +256,22 @@
 
       // Recalculate scores and reset player state
       player.value.possible(boardLettersUpperCase.value);
-      for (const node of historyTree.value.nodes.values()) {
+      for (const node of analysisStore.historyTree.nodes.values()) {
          const s: Score = convertBoardScore(node.colors.toUpperCase());
          node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
       }
       // Get path to selected node for resetplayed
-      const path = selectedNode ? getPathToNode(historyTree.value, selectedNode.id) : [];
+      const path = selectedNode ? getPathToNode(analysisStore.historyTree, selectedNode.id) : [];
       const played = path.slice(1).map((n) => n.text);
       player.value.resetplayed(boardLettersUpperCase.value, played);
    }
 
-   function selectGame(gameId: string) {
-      if (selectedGameId.value === gameId) return;
-      updateCurrentGameInArray();
-      const game = games.value.find((g) => g.id === gameId);
-      if (game) {
-         selectedGameId.value = gameId;
-         loadGameState(game);
-         saveToLocalStorage();
-         updateQueryParams();
-         runSearch();
-      }
+   function generateGameId(): string {
+      return `game-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
    }
 
    function createNewGame(useDefault: boolean = false) {
-      updateCurrentGameInArray();
+      analysisStore.updateCurrentGameInArray();
       const newId = generateGameId();
       const defaultBoard = useDefault ? 'CONCENTRATEFORLETTERPRESS' : '';
       const defaultColors = useDefault ? 'BBBBBBBBBBBWWWrrRRRRRrrRR' : '';
@@ -384,31 +289,24 @@
          selectedNodeId: null,
          moveIndicator: 1,
       };
-      games.value.push(newGame);
-      selectedGameId.value = newId;
+      analysisStore.games.push(newGame);
+      analysisStore.selectedGameId = newId;
       loadGameState(newGame);
-      saveToLocalStorage();
+      analysisStore.saveToLocalStorage();
       updateQueryParams();
       runSearch();
    }
-
-   function reorderGames(fromIndex: number, toIndex: number) {
-      const [movedGame] = games.value.splice(fromIndex, 1);
-      games.value.splice(toIndex, 0, movedGame!);
-      saveToLocalStorage();
-   }
-
    function deleteGame(gameId: string) {
-      const idx = games.value.findIndex((g) => g.id === gameId);
+      const idx = analysisStore.games.findIndex((g) => g.id === gameId);
       if (idx === -1) return;
-      games.value.splice(idx, 1);
+      analysisStore.games.splice(idx, 1);
 
-      if (selectedGameId.value === gameId) {
-         if (games.value.length > 0) {
+      if (analysisStore.selectedGameId === gameId) {
+         if (analysisStore.games.length > 0) {
             // Select another game (prefer the one at same index, or last one)
-            const newIdx = Math.min(idx, games.value.length - 1);
-            const newGame = games.value[newIdx]!;
-            selectedGameId.value = newGame.id;
+            const newIdx = Math.min(idx, analysisStore.games.length - 1);
+            const newGame = analysisStore.games[newIdx]!;
+            analysisStore.selectedGameId = newGame.id;
             loadGameState(newGame);
          } else {
             // No games left, create a new default one
@@ -416,11 +314,10 @@
             return;
          }
       }
-      saveToLocalStorage();
+      analysisStore.saveToLocalStorage();
       updateQueryParams();
       runSearch();
    }
-
    function readQueryParams(): string | null {
       const params = new URLSearchParams(window.location.search);
       const gameId = params.get('id');
@@ -432,7 +329,7 @@
          const tree = parseHashToTree(rawHash);
 
          if (tree.rootId && tree.nodes.size > 0) {
-            historyTree.value = tree;
+            analysisStore.historyTree = tree;
 
             const rootNode = tree.nodes.get(tree.rootId);
             if (rootNode && rootNode.type === 0 && rootNode.text.length === 25) {
@@ -443,7 +340,7 @@
             let selectedNode: HistoryNode | undefined;
             if (selected && tree.nodes.has(selected)) {
                selectedNode = tree.nodes.get(selected);
-               selectedNodeId.value = selected;
+               analysisStore.selectedNodeId = selected;
             } else {
                // Default to last node in main line
                let current = rootNode;
@@ -451,7 +348,7 @@
                   current = tree.nodes.get(current.childIds[0]!);
                }
                selectedNode = current;
-               selectedNodeId.value = selectedNode?.id ?? null;
+               analysisStore.selectedNodeId = selectedNode?.id ?? null;
             }
 
             if (selectedNode) {
@@ -461,9 +358,9 @@
                   const firstChild = selectedNode.childIds[0]
                      ? tree.nodes.get(selectedNode.childIds[0])
                      : null;
-                  moveIndicator.value = firstChild?.type ?? 1;
+                  analysisStore.moveIndicator = firstChild?.type ?? 1;
                } else {
-                  moveIndicator.value = -selectedNode.type;
+                  analysisStore.moveIndicator = -selectedNode.type;
                }
             }
 
@@ -484,9 +381,10 @@
 
    function updateQueryParams() {
       const params = new URLSearchParams();
-      if (selectedGameId.value) params.set('id', selectedGameId.value);
-      if (selectedNodeId.value !== null) params.set('selected', selectedNodeId.value);
-      const historyFragment = serializeTreeToHash(historyTree.value);
+      if (analysisStore.selectedGameId) params.set('id', analysisStore.selectedGameId);
+      if (analysisStore.selectedNodeId !== null)
+         params.set('selected', analysisStore.selectedNodeId);
+      const historyFragment = serializeTreeToHash(analysisStore.historyTree);
       const newUrl = `${window.location.pathname}?${params.toString()}#${historyFragment}`;
       history.replaceState(null, '', newUrl);
    }
@@ -499,24 +397,46 @@
       updateIsMobile();
       window.addEventListener('resize', updateIsMobile);
 
-      let wordList: string[] = await getWordList(wordListSelected.value, useBadWords.value);
+      let wordList: string[] = await getWordList(
+         analysisStore.wordListSelected,
+         analysisStore.useBadWords
+      );
       player = shallowRef<Player>(markRaw(new Player(undefined, undefined, wordList)));
       if (import.meta.env.DEV) window.player = player; //for console debug purposes
 
       // Load app state from local storage
-      const storedState = loadFromLocalStorage();
+      // TODO move this logic to analysisStore
+      const storedState = analysisStore.loadFromLocalStorage();
       if (storedState) {
-         themeSelected.value = storedState.theme;
-         wordListSelected.value = storedState.wordList;
-         useBadWords.value = storedState.useBadWords;
-         games.value = storedState.games;
-         selectedGameId.value = storedState.selectedGameId;
-         historyTreePageSize.value = storedState.historyTreePageSize;
-         searchResultsPageSize.value = storedState.searchResultsPageSize;
+         // Ensure wordList has a valid default
+         if (
+            !storedState.wordList ||
+            !availableWordLists.some((wl) => wl.value === storedState.wordList)
+         ) {
+            storedState.wordList = 'en';
+         }
+         // Ensure useBadWords has a valid default
+         if (typeof storedState.useBadWords !== 'boolean') {
+            storedState.useBadWords = false;
+         }
+         // Ensure page sizes have a value
+         if (typeof storedState.historyTreePageSize !== 'number') {
+            storedState.historyTreePageSize = 20;
+         }
+         if (typeof storedState.searchResultsPageSize !== 'number') {
+            storedState.searchResultsPageSize = 20;
+         }
+         analysisStore.themeSelected = storedState.theme;
+         analysisStore.wordListSelected = storedState.wordList;
+         analysisStore.useBadWords = storedState.useBadWords;
+         analysisStore.games = storedState.games;
+         analysisStore.selectedGameId = storedState.selectedGameId;
+         analysisStore.historyTreePageSize = storedState.historyTreePageSize;
+         analysisStore.searchResultsPageSize = storedState.searchResultsPageSize;
       } else {
          // Set theme based on system preference
          const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-         themeSelected.value = prefersDark ? 'Dark' : 'Light';
+         analysisStore.themeSelected = prefersDark ? 'Dark' : 'Light';
       }
 
       // Check for URL params first (they override local storage)
@@ -524,49 +444,52 @@
 
       if (boardLetters.value) {
          // URL had game data - check if game ID exists in storage
-         const existingGame = urlGameId ? games.value.find((g) => g.id === urlGameId) : null;
+         const existingGame = urlGameId
+            ? analysisStore.games.find((g) => g.id === urlGameId)
+            : null;
          if (existingGame) {
             // Update existing game with URL data
-            selectedGameId.value = urlGameId;
-            existingGame.historyNodes = treeToArray(historyTree.value);
-            existingGame.selectedNodeId = selectedNodeId.value;
-            existingGame.moveIndicator = moveIndicator.value;
+            analysisStore.selectedGameId = urlGameId;
+            existingGame.historyNodes = treeToArray(analysisStore.historyTree);
+            existingGame.selectedNodeId = analysisStore.selectedNodeId;
+            existingGame.moveIndicator = analysisStore.moveIndicator;
          } else {
             // Create new game from URL data
+            // TODO move this logic to analysisStore
             const newId = urlGameId || generateGameId();
             const newGame: StoredGameState = {
                id: newId,
                createdAt: Date.now(),
-               historyNodes: treeToArray(historyTree.value),
-               selectedNodeId: selectedNodeId.value,
-               moveIndicator: moveIndicator.value,
+               historyNodes: treeToArray(analysisStore.historyTree),
+               selectedNodeId: analysisStore.selectedNodeId,
+               moveIndicator: analysisStore.moveIndicator,
             };
-            games.value.push(newGame);
-            selectedGameId.value = newId;
+            analysisStore.games.push(newGame);
+            analysisStore.selectedGameId = newId;
          }
-      } else if (selectedGameId.value) {
+      } else if (analysisStore.selectedGameId) {
          // Load selected game from storage
-         const game = games.value.find((g) => g.id === selectedGameId.value);
+         const game = analysisStore.games.find((g) => g.id === analysisStore.selectedGameId);
          if (game) {
             loadGameState(game);
-         } else if (games.value.length > 0) {
+         } else if (analysisStore.games.length > 0) {
             // Selected game not found, load first game
-            selectedGameId.value = games.value[0]!.id;
-            loadGameState(games.value[0]!);
+            analysisStore.selectedGameId = analysisStore.games[0]!.id;
+            loadGameState(analysisStore.games[0]!);
          } else {
             // First time user - create with default board
             createNewGame(true);
          }
-      } else if (games.value.length > 0) {
+      } else if (analysisStore.games.length > 0) {
          // No selection but games exist, select first
-         selectedGameId.value = games.value[0]!.id;
-         loadGameState(games.value[0]!);
+         analysisStore.selectedGameId = analysisStore.games[0]!.id;
+         loadGameState(analysisStore.games[0]!);
       } else {
          // No games at all (first time user) - create with default board
          createNewGame(true);
       }
 
-      saveToLocalStorage();
+      analysisStore.saveToLocalStorage();
       updateQueryParams();
       runSearch();
    });
@@ -585,8 +508,8 @@
       );
       const tree = createEmptyTree();
       addNodeToTree(tree, rootNode);
-      historyTree.value = tree;
-      selectedNodeId.value = null;
+      analysisStore.historyTree = tree;
+      analysisStore.selectedNodeId = null;
    }
 
    function clearHistorySyncState() {
@@ -596,7 +519,7 @@
 
    function syncState() {
       updateQueryParams();
-      saveToLocalStorage();
+      analysisStore.saveToLocalStorage();
       if (searchDebounceHandle) {
          clearTimeout(searchDebounceHandle);
       }
@@ -611,7 +534,7 @@
          const colors = colorLettersUpperCase.value;
          const need = needLettersUpperCase.value;
          const not = notLettersUpperCase.value;
-         const move = moveIndicator.value;
+         const move = analysisStore.moveIndicator;
          searchResults.value = player.value.search(letters, colors, need, not, move);
       } else {
          searchResults.value = [];
@@ -651,39 +574,34 @@
    }
 
    async function reloadWordList() {
-      const wordList = await getWordList(wordListSelected.value, useBadWords.value);
+      const wordList = await getWordList(analysisStore.wordListSelected, analysisStore.useBadWords);
       player.value = markRaw(new Player(undefined, undefined, wordList));
       if (import.meta.env.DEV) window.player = player;
       // Recalculate scores for current game
       if (boardLetters.value.length === 25) {
          player.value.possible(boardLettersUpperCase.value);
-         for (const node of historyTree.value.nodes.values()) {
+         for (const node of analysisStore.historyTree.nodes.values()) {
             const s: Score = convertBoardScore(node.colors.toUpperCase());
             node.score = roundTo(player.value.evaluatePos(boardLettersUpperCase.value, s), 3);
          }
          // Get path to selected node
          let selectedNode: HistoryNode | undefined;
-         if (selectedNodeId.value) {
-            selectedNode = historyTree.value.nodes.get(selectedNodeId.value);
+         if (analysisStore.selectedNodeId) {
+            selectedNode = analysisStore.historyTree.nodes.get(analysisStore.selectedNodeId);
          }
          if (!selectedNode) {
             // Find last node in main line
-            let current = historyTree.value.nodes.get(historyTree.value.rootId);
+            let current = analysisStore.historyTree.nodes.get(analysisStore.historyTree.rootId);
             while (current && current.childIds.length > 0) {
-               current = historyTree.value.nodes.get(current.childIds[0]!);
+               current = analysisStore.historyTree.nodes.get(current.childIds[0]!);
             }
             selectedNode = current;
          }
-         const path = selectedNode ? getPathToNode(historyTree.value, selectedNode.id) : [];
+         const path = selectedNode ? getPathToNode(analysisStore.historyTree, selectedNode.id) : [];
          const played = path.slice(1).map((n) => n.text);
          player.value.resetplayed(boardLettersUpperCase.value, played);
          runSearch();
       }
-   }
-
-   function updateHistoryPageSize(size: number) {
-      historyTreePageSize.value = size;
-      saveToLocalStorage();
    }
 
    function addPlayToHistory(play: Play) {
@@ -693,45 +611,43 @@
 
       // Determine parent node
       let parentId: string;
-      if (selectedNodeId.value !== null) {
-         parentId = selectedNodeId.value;
+      if (analysisStore.selectedNodeId !== null) {
+         parentId = analysisStore.selectedNodeId;
       } else {
          // Find last node in main line to use as parent
-         let current = historyTree.value.nodes.get(historyTree.value.rootId);
+         let current = analysisStore.historyTree.nodes.get(analysisStore.historyTree.rootId);
          while (current && current.childIds.length > 0) {
-            current = historyTree.value.nodes.get(current.childIds[0]!);
+            current = analysisStore.historyTree.nodes.get(current.childIds[0]!);
          }
-         parentId = current?.id ?? historyTree.value.rootId;
+         parentId = current?.id ?? analysisStore.historyTree.rootId;
       }
 
       // Create new node and add to tree
-      const newNode = createMoveNode(moveIndicator.value, word, colors, score, parentId);
-      addNodeToTree(historyTree.value, newNode);
+      const newNode = createMoveNode(analysisStore.moveIndicator, word, colors, score, parentId);
+      addNodeToTree(analysisStore.historyTree, newNode);
 
       // Trigger reactivity by creating new tree reference
-      historyTree.value = { ...historyTree.value, nodes: new Map(historyTree.value.nodes) };
+      analysisStore.historyTree = {
+         ...analysisStore.historyTree,
+         nodes: new Map(analysisStore.historyTree.nodes),
+      };
 
       player.value.playword(boardLettersUpperCase.value, word);
-      selectedNodeId.value = newNode.id;
+      analysisStore.selectedNodeId = newNode.id;
       colorLetters.value = colors;
-      moveIndicator.value = -moveIndicator.value;
+      analysisStore.moveIndicator = -analysisStore.moveIndicator;
       searchResults.value = [];
       needLetters.value = '';
       notLetters.value = '';
       wordFilter.value = '';
 
       updateQueryParams();
-      saveToLocalStorage();
+      analysisStore.saveToLocalStorage();
       runSearch();
    }
 
-   function updateSearchResultsPageSize(size: number) {
-      searchResultsPageSize.value = size;
-      saveToLocalStorage();
-   }
-
    function deleteNodeAndChildren(nodeId: string): void {
-      const node = historyTree.value.nodes.get(nodeId);
+      const node = analysisStore.historyTree.nodes.get(nodeId);
       if (!node) return;
 
       // Recursively delete all children first
@@ -741,7 +657,7 @@
 
       // Remove this node from parent's childIds
       if (node.parentId) {
-         const parent = historyTree.value.nodes.get(node.parentId);
+         const parent = analysisStore.historyTree.nodes.get(node.parentId);
          if (parent) {
             const idx = parent.childIds.indexOf(nodeId);
             if (idx !== -1) {
@@ -751,7 +667,7 @@
       }
 
       // Remove node from tree
-      historyTree.value.nodes.delete(nodeId);
+      analysisStore.historyTree.nodes.delete(nodeId);
    }
 
    function onHistoryNodeDelete(node: HistoryNode) {
@@ -761,21 +677,21 @@
       const parentId = node.parentId;
 
       // If selected node is being deleted or is a descendant, move selection to parent
-      if (selectedNodeId.value) {
-         const path = getPathToNode(historyTree.value, selectedNodeId.value);
+      if (analysisStore.selectedNodeId) {
+         const path = getPathToNode(analysisStore.historyTree, analysisStore.selectedNodeId);
          const isSelectedOrDescendant = path.some((n) => n.id === node.id);
          if (isSelectedOrDescendant) {
-            selectedNodeId.value = parentId;
-            const parentNode = parentId ? historyTree.value.nodes.get(parentId) : null;
+            analysisStore.selectedNodeId = parentId;
+            const parentNode = parentId ? analysisStore.historyTree.nodes.get(parentId) : null;
             if (parentNode) {
                colorLetters.value = parentNode.colors;
                if (parentNode.type === 0) {
                   const firstChild = parentNode.childIds[0]
-                     ? historyTree.value.nodes.get(parentNode.childIds[0])
+                     ? analysisStore.historyTree.nodes.get(parentNode.childIds[0])
                      : null;
-                  moveIndicator.value = firstChild?.type ?? 1;
+                  analysisStore.moveIndicator = firstChild?.type ?? 1;
                } else {
-                  moveIndicator.value = -parentNode.type;
+                  analysisStore.moveIndicator = -parentNode.type;
                }
             }
          }
@@ -785,11 +701,14 @@
       deleteNodeAndChildren(node.id);
 
       // Trigger reactivity
-      historyTree.value = { ...historyTree.value, nodes: new Map(historyTree.value.nodes) };
+      analysisStore.historyTree = {
+         ...analysisStore.historyTree,
+         nodes: new Map(analysisStore.historyTree.nodes),
+      };
 
       // Reset player state
-      if (selectedNodeId.value) {
-         const path = getPathToNode(historyTree.value, selectedNodeId.value);
+      if (analysisStore.selectedNodeId) {
+         const path = getPathToNode(analysisStore.historyTree, analysisStore.selectedNodeId);
          const played = path.slice(1).map((n) => n.text);
          player.value.resetplayed(boardLettersUpperCase.value, played);
       }
@@ -798,24 +717,26 @@
    }
 
    function onHistoryNodeClicked(node: HistoryNode) {
-      selectedNodeId.value = node.id;
+      analysisStore.selectedNodeId = node.id;
       colorLetters.value = node.colors;
 
       // If the node is root (type 0), check first child for move indicator
       if (node.type === 0) {
-         const firstChild = node.childIds[0] ? historyTree.value.nodes.get(node.childIds[0]) : null;
-         moveIndicator.value = firstChild?.type ?? 1;
+         const firstChild = node.childIds[0]
+            ? analysisStore.historyTree.nodes.get(node.childIds[0])
+            : null;
+         analysisStore.moveIndicator = firstChild?.type ?? 1;
       } else {
-         moveIndicator.value = -node.type;
+         analysisStore.moveIndicator = -node.type;
       }
 
       // Reset played words to path up to this node
-      const path = getPathToNode(historyTree.value, node.id);
+      const path = getPathToNode(analysisStore.historyTree, node.id);
       const played = path.slice(1).map((n) => n.text);
       player.value.resetplayed(boardLettersUpperCase.value, played);
 
       updateQueryParams();
-      saveToLocalStorage();
+      analysisStore.saveToLocalStorage();
       runSearch();
    }
 
@@ -829,25 +750,17 @@
       <!-- Settings Modal -->
       <SettingsModal
          v-if="showSettings"
-         :themeSelected="themeSelected"
          :availableThemes="availableThemes"
-         :wordListSelected="wordListSelected"
          :availableWordLists="availableWordLists"
-         :useBadWords="useBadWords"
          @close="showSettings = false"
-         @update:themeSelected="themeSelected = $event as ThemeName"
-         @update:wordListSelected="wordListSelected = $event"
-         @update:useBadWords="useBadWords = $event"
       />
       <GamesSidebar
-         :games="games"
-         :selectedGameId="selectedGameId"
+         :games="analysisStore.games"
+         :selectedGameId="analysisStore.selectedGameId"
          :previewCellSize="navPreviewCellSize"
-         @select-game="selectGame"
-         @create-game="createNewGame(false)"
-         @delete-game="deleteGame"
-         @reorder-games="reorderGames"
          @open-settings="showSettings = true"
+         @select-game="selectGame"
+         @delete-game="deleteGame"
       />
       <div class="left-pane">
          <div class="board-container">
@@ -855,13 +768,8 @@
             <BoardEditor
                ref="boardEditorRef"
                :theme="theme"
-               :moveIndicator="moveIndicator"
                :boardLetters="boardLetters"
                :colorLetters="colorLetters"
-               @update:moveIndicator="
-                  moveIndicator = $event;
-                  syncState();
-               "
                @update:boardLetters="
                   boardLetters = $event;
                   clearHistorySyncState();
@@ -873,14 +781,10 @@
             />
          </div>
          <HistoryTree
-            :historyTree="historyTree"
             :boardLetters="boardLettersUpperCase"
             :boardPreviewCellSize="boardPreviewCellSize"
-            :selectedNodeId="selectedNodeId"
-            :pageSize="historyTreePageSize"
             @node-click="onHistoryNodeClicked"
             @node-delete="onHistoryNodeDelete"
-            @update:pageSize="updateHistoryPageSize"
          />
       </div>
       <div class="right-pane">
@@ -907,12 +811,9 @@
             :player="player"
             :searchResults="searchResults"
             :boardPreviewCellSize="boardPreviewCellSize"
-            :move="moveIndicator"
             :wordFilter="wordFilterDebounced"
             :hideLosingPlays="hideLosingPlays"
-            :pageSize="searchResultsPageSize"
             @add-to-history="addPlayToHistory"
-            @update:pageSize="updateSearchResultsPageSize"
          ></SearchResults>
       </div>
    </div>

@@ -5,40 +5,36 @@
    import PagerControls from './PagerControls.vue';
    import { scoreToColors, convertBoardScore } from '../ts/board';
    import { computeScoreBar } from '../ts/util';
-   import {
-      type HistoryTree as HistoryTreeType,
-      type HistoryNode,
-      flattenTree,
-      type FlattenedRow,
-   } from '../ts/historyTree';
+   import { type HistoryNode, flattenTree, type FlattenedRow } from '../ts/historyTree';
+   import { useAnalysisStore } from '@/stores/analysisStore';
+
+   const analysisStore = useAnalysisStore();
 
    const props = defineProps<{
-      historyTree: HistoryTreeType;
       boardLetters: string;
       boardPreviewCellSize: number;
-      selectedNodeId: string | null;
-      pageSize: number;
    }>();
 
    const emit = defineEmits<{
       (e: 'node-click', node: HistoryNode): void;
       (e: 'node-delete', node: HistoryNode): void;
-      (e: 'update:pageSize', pageSize: number): void;
    }>();
 
-   const { historyTree, boardLetters, boardPreviewCellSize, selectedNodeId, pageSize } =
-      toRefs(props);
+   const { boardLetters, boardPreviewCellSize } = toRefs(props);
 
    const currentPage = ref(0);
 
    // Flatten tree and compute line info
    const flattenedRows = computed<FlattenedRow[]>(() => {
-      return flattenTree(historyTree.value);
+      return flattenTree(analysisStore.historyTree);
    });
 
-   const startIndex = computed(() => currentPage.value * pageSize.value);
+   const startIndex = computed(() => currentPage.value * analysisStore.historyTreePageSize);
    const pagedRows = computed(() =>
-      flattenedRows.value.slice(startIndex.value, startIndex.value + pageSize.value)
+      flattenedRows.value.slice(
+         startIndex.value,
+         startIndex.value + analysisStore.historyTreePageSize
+      )
    );
    const rowHeightPx = computed(() => boardPreviewCellSize.value * 5 + 12);
    const branchSegmentWidth = 20;
@@ -54,26 +50,30 @@
 
    // Find the index of the selected node in flattened list
    const selectedFlatIndex = computed(() => {
-      if (selectedNodeId.value === null) return null;
-      return flattenedRows.value.findIndex((r) => r.node.id === selectedNodeId.value);
+      if (analysisStore.selectedNodeId === null) return null;
+      return flattenedRows.value.findIndex((r) => r.node.id === analysisStore.selectedNodeId);
    });
 
    // Keep the page aligned with the selected node
-   watch([selectedFlatIndex, pageSize], () => {
+   watch([selectedFlatIndex, analysisStore.historyTreePageSize], () => {
       if (selectedFlatIndex.value === null || selectedFlatIndex.value < 0) {
          currentPage.value = 0;
       } else {
-         currentPage.value = Math.floor(selectedFlatIndex.value / pageSize.value);
+         currentPage.value = Math.floor(
+            selectedFlatIndex.value / analysisStore.historyTreePageSize
+         );
       }
    });
 
    // Reset to first page when the tree changes if selection is cleared
-   watch(historyTree, () => {
-      if (selectedNodeId.value === null) {
+   watch(analysisStore.historyTree, () => {
+      if (analysisStore.selectedNodeId === null) {
          currentPage.value = 0;
       } else {
-         const idx = flattenedRows.value.findIndex((r) => r.node.id === selectedNodeId.value);
-         currentPage.value = idx >= 0 ? Math.floor(idx / pageSize.value) : 0;
+         const idx = flattenedRows.value.findIndex(
+            (r) => r.node.id === analysisStore.selectedNodeId
+         );
+         currentPage.value = idx >= 0 ? Math.floor(idx / analysisStore.historyTreePageSize) : 0;
       }
    });
 </script>
@@ -87,7 +87,7 @@
                v-for="row in pagedRows"
                :key="row.node.id"
                class="history-row"
-               :class="{ selected: row.node.id === selectedNodeId }"
+               :class="{ selected: row.node.id === analysisStore.selectedNodeId }"
                :style="{ height: rowHeightPx + 'px' }"
                @click="onRowClick(row.node)"
             >
@@ -195,8 +195,8 @@
       <PagerControls
          v-model="currentPage"
          :total-items="flattenedRows.length"
-         :page-size="pageSize"
-         @update:page-size="emit('update:pageSize', $event)"
+         :page-size="analysisStore.historyTreePageSize"
+         @update:page-size="analysisStore.historyTreePageSize = $event"
       />
    </div>
 </template>

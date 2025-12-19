@@ -1,5 +1,8 @@
 <script setup lang="ts">
    import type { ThemeName } from '../ts/board';
+   import { useAnalysisStore } from '@/stores/analysisStore';
+
+   const analysisStore = useAnalysisStore();
 
    interface WordListOption {
       value: string;
@@ -7,11 +10,8 @@
    }
 
    defineProps<{
-      themeSelected: string;
       availableThemes: string[];
-      wordListSelected: string;
       availableWordLists: WordListOption[];
-      useBadWords: boolean;
    }>();
 
    const emit = defineEmits<{
@@ -23,17 +23,17 @@
 
    function onThemeChange(event: Event) {
       const target = event.target as HTMLSelectElement;
-      emit('update:themeSelected', target.value as ThemeName);
+      analysisStore.themeSelected = target.value as ThemeName;
    }
 
    function onWordListChange(event: Event) {
       const target = event.target as HTMLSelectElement;
-      emit('update:wordListSelected', target.value);
+      analysisStore.wordListSelected = target.value;
    }
 
    function onUseBadWordsChange(event: Event) {
       const target = event.target as HTMLInputElement;
-      emit('update:useBadWords', target.checked);
+      analysisStore.useBadWords = target.checked;
    }
 </script>
 
@@ -49,7 +49,7 @@
                <select
                   id="settings-theme-input"
                   class="select-field__input"
-                  :value="themeSelected"
+                  :value="analysisStore.themeSelected"
                   @change="onThemeChange"
                >
                   <option v-for="t in availableThemes" :key="t" :value="t">{{ t }}</option>
@@ -61,7 +61,7 @@
                <select
                   id="settings-wordlist-input"
                   class="select-field__input"
-                  :value="wordListSelected"
+                  :value="analysisStore.wordListSelected"
                   @change="onWordListChange"
                >
                   <option v-for="wl in availableWordLists" :key="wl.value" :value="wl.value">
@@ -76,7 +76,7 @@
                   type="checkbox"
                   id="settings-badwords-input"
                   class="checkbox-field__input"
-                  :checked="useBadWords"
+                  :checked="analysisStore.useBadWords"
                   @change="onUseBadWordsChange"
                />
                <label for="settings-badwords-input" class="checkbox-field__label"

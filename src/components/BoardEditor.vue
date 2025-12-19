@@ -1,10 +1,12 @@
 <script setup lang="ts">
    import { ref } from 'vue';
    import type { ThemeConfig } from '../ts/board';
+   import { useAnalysisStore } from '@/stores/analysisStore';
+
+   const analysisStore = useAnalysisStore();
 
    defineProps<{
       theme: ThemeConfig;
-      moveIndicator: number;
       boardLetters: string;
       colorLetters: string;
    }>();
@@ -57,7 +59,7 @@
             <select
                id="turn-input"
                class="select-field__input"
-               :value="moveIndicator"
+               :value="analysisStore.moveIndicator"
                @change="onMoveChange"
             >
                <option :value="1">{{ theme.blueName }} to play</option>
