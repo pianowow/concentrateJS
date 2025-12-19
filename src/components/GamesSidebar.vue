@@ -2,6 +2,9 @@
    import { ref, computed } from 'vue';
    import { scoreToColors, convertBoardScore } from '../ts/board';
    import BoardGrid from './BoardGrid.vue';
+   import { useAnalysisStore } from '@/stores/analysisStore';
+
+   const analysisStore = useAnalysisStore();
 
    interface HistoryNode {
       id: string;
@@ -35,7 +38,6 @@
       selectGame: [gameId: string];
       createGame: [];
       deleteGame: [gameId: string];
-      reorderGames: [fromIndex: number, toIndex: number];
       openSettings: [];
    }>();
 
@@ -124,7 +126,7 @@
       const fromIdx = props.games.findIndex((g) => g.id === draggedGameId.value);
 
       if (fromIdx !== -1 && fromIdx !== dragOverIndex.value) {
-         emit('reorderGames', fromIdx, dragOverIndex.value);
+         analysisStore.reorderGames(fromIdx, dragOverIndex.value);
       }
 
       // delay clearing drag state until after parent updates props.games
