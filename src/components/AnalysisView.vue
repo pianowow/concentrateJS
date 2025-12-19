@@ -760,6 +760,7 @@
          :previewCellSize="navPreviewCellSize"
          @open-settings="showSettings = true"
          @select-game="selectGame"
+         @create-game="createNewGame"
          @delete-game="deleteGame"
       />
       <div class="left-pane">
